@@ -1,5 +1,6 @@
 import time
 import pygame
+import minimax
 
 # Initialize Pygame
 pygame.init()
@@ -92,6 +93,16 @@ def run(instance):
                         current_player = 3 - current_player
         draw_board(instance)
         pygame.display.flip()
+
+        if current_player == 2 and not minimax.check_game_over(instance):
+            ai_row, ai_col = minimax.ai_move(instance)
+            minimax.make_move((ai_row, ai_col), current_player, instance)
+            if check_win(ai_row, ai_col, current_player, instance):
+                victory_text = "AI wins!"
+                print(victory_text)
+                running = False
+            else:
+                current_player = 3 - current_player
 
     # End game
     pygame.display.set_caption("Gomoku -- " + victory_text)
