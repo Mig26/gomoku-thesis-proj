@@ -68,13 +68,30 @@ def check_win(row, col, player, instance):
     return False
 
 
+def check_board_full(instance):
+    board = instance.board
+    grid_size = instance.GRID_SIZE
+    for row in range(grid_size):
+        for col in range(grid_size):
+            if board[row][col] == 0:
+                return False
+    return True
+
+
 def run(instance):
     # Main game loop
     global window_name, victory_text, current_player
     running = True
-    while running:
-        window_name = "Gomoku -- Player " + str(current_player)
-        pygame.display.set_caption(window_name)
+    while running and not check_board_full(instance):
+        if current_player == 2 and not minimax.check_game_over(instance):
+            ai_row, ai_col = minimax.ai_move(instance)
+            minimax.make_move((ai_row, ai_col), current_player, instance)
+            if check_win(ai_row, ai_col, current_player, instance):
+                victory_text = "AI wins!"
+                print(victory_text)
+                running = False
+            else:
+                current_player = 3 - current_player
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -93,16 +110,8 @@ def run(instance):
                         current_player = 3 - current_player
         draw_board(instance)
         pygame.display.flip()
-
-        if current_player == 2 and not minimax.check_game_over(instance):
-            ai_row, ai_col = minimax.ai_move(instance)
-            minimax.make_move((ai_row, ai_col), current_player, instance)
-            if check_win(ai_row, ai_col, current_player, instance):
-                victory_text = "AI wins!"
-                print(victory_text)
-                running = False
-            else:
-                current_player = 3 - current_player
+        window_name = "Gomoku -- Player " + str(current_player)
+        pygame.display.set_caption(window_name)
 
     # End game
     pygame.display.set_caption("Gomoku -- " + victory_text)
