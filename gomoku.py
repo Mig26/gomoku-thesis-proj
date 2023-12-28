@@ -1,6 +1,6 @@
 import time
 import pygame
-import minimax
+import testai
 
 # Initialize Pygame
 pygame.init()
@@ -83,9 +83,9 @@ def run(instance):
     global window_name, victory_text, current_player
     running = True
     while running and not check_board_full(instance):
-        if current_player == 2 and not minimax.check_game_over(instance):
-            ai_row, ai_col = minimax.ai_move(instance)
-            minimax.make_move((ai_row, ai_col), current_player, instance)
+        if current_player == 2 and not testai.check_game_over(instance):
+            ai_row, ai_col = testai.ai_move(instance)
+            testai.make_move((ai_row, ai_col), current_player, instance)
             if check_win(ai_row, ai_col, current_player, instance):
                 victory_text = "AI wins!"
                 print(victory_text)
