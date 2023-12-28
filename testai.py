@@ -1,5 +1,5 @@
 import random
-DEPTH = 6
+DEPTH = 5
 
 
 def check_line(row, col, dir_row, dir_col, instance):
@@ -11,16 +11,18 @@ def check_line(row, col, dir_row, dir_col, instance):
         try:
             if board[row + (dir_row * (i + 1))][col + (dir_col * (i + 1))] != 0:
                 if previous == board[row + (dir_row * (i+1))][col + (dir_col * (i+1))]:
-                    multiplier *= (1 + multiplier)# ** 2
+                    multiplier *= (1 + multiplier)
                 else:
                     multiplier = 1
+                    score_own = 0
+                    score_enemy = 0
                 if board[row + (dir_row * (i+1))][col + (dir_col * (i+1))] == 1:
                     score_enemy += 2 * multiplier - i
                 elif board[row + (dir_row * (i+1))][col + (dir_col * (i+1))] == 2:
-                    score_own += 3 * multiplier - i
+                    score_own += 3.5 * multiplier - i
                 previous = board[row + (dir_row * (i + 1))][col + (dir_col * (i + 1))]
             elif i == 0:
-                adjacency_loss = 4
+                adjacency_loss = 8
         except IndexError:
             break
     score_own = score_own / adjacency_loss
@@ -46,7 +48,12 @@ def evaluate_board(instance):
                         score_enemy += score_enemy_
                 except IndexError:
                     pass
-                score = score_enemy - score_own
+                score = 0
+                if score_own > score_enemy:
+                    score = score_own
+                else:
+                    score = score_enemy
+                # score = score_enemy - score_own
                 if score < 0:
                     score = 0
                 scores[(row, col)] = score
