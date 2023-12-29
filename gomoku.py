@@ -78,6 +78,7 @@ def run(instance):
     # Main game loop
     global window_name, victory_text, current_player
     # Initialize Pygame
+    pygame.display.set_icon(pygame.image.load('res/ico.png'))
     pygame.init()
     pygame.display.set_caption(window_name)
     running = True

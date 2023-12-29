@@ -2,6 +2,8 @@ import sys
 from tkinter import *
 import gomoku
 import filereader
+from PIL import Image, ImageTk
+
 
 game_instance = gomoku.GomokuGame(filereader.create_gomoku_game("consts.json"))
 
@@ -10,6 +12,7 @@ root.geometry("170x232")
 root.minsize(170, 232)
 root.maxsize(170, 232)
 root.title("Gomoku -- Main Menu")
+root.wm_iconphoto(False, ImageTk.PhotoImage(Image.open('res/ico.png')))
 
 style_numbers = ["georgia", 10, "white", 12, 2]
 
