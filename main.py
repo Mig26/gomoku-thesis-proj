@@ -1,10 +1,8 @@
-import gomoku
-import filereader
+import mainmenu
 
 
 def main():
-    game_instance = gomoku.GomokuGame(filereader.create_gomoku_game("consts.json"))
-    gomoku.run(game_instance)
+    mainmenu.mainmenu_run()
 
 
 if __name__ == '__main__':

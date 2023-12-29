@@ -2,9 +2,6 @@ import time
 import pygame
 import testai
 
-# Initialize Pygame
-pygame.init()
-
 
 class GomokuGame:
     def __init__(self, values):
@@ -23,7 +20,6 @@ class GomokuGame:
 
 window_name = "Gomoku"
 victory_text = ""
-pygame.display.set_caption(window_name)
 
 current_player = 1
 
@@ -81,6 +77,9 @@ def check_board_full(instance):
 def run(instance):
     # Main game loop
     global window_name, victory_text, current_player
+    # Initialize Pygame
+    pygame.init()
+    pygame.display.set_caption(window_name)
     running = True
     while running and not check_board_full(instance):
         if current_player == 2 and not testai.check_game_over(instance):
@@ -117,4 +116,6 @@ def run(instance):
     pygame.display.set_caption("Gomoku -- " + victory_text)
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
-    running = True
+
+
+pygame.quit()
