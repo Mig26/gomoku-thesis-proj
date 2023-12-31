@@ -1,6 +1,7 @@
 import time
 import pygame
 import testai
+import random
 
 
 class GomokuGame:
@@ -16,6 +17,30 @@ class GomokuGame:
         self.SLEEP_BEFORE_END = values[7]
         self.board = [[0] * self.GRID_SIZE for _ in range(self.GRID_SIZE)]
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
+
+
+class Player:
+    def __init__(self, player_type, player_id):
+        self.TYPE = str(player_type)
+        self.ID = int(player_id)
+
+    def set_player(self, player_type, player_id):
+        self.TYPE = str(player_type)
+        self.ID = int(player_id)
+        print("Set player", self.ID, "to", self.TYPE)
+
+    def get_player(self):
+        return self
+
+
+player1 = Player("Human", 0)
+player2 = Player("AI", 1)
+players = [player1, player2]
+
+
+def set_players(_players):
+    global players
+    players = _players
 
 
 window_name = "Gomoku"
@@ -82,8 +107,29 @@ def run(instance):
     pygame.init()
     pygame.display.set_caption(window_name)
     running = True
+    print(players[0].TYPE, players[1].TYPE)
     while running and not check_board_full(instance):
-        if current_player == 2 and not testai.check_game_over(instance):
+        # Human move
+        if players[current_player-1].TYPE == "Human":
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    x, y = event.pos
+                    col = x // instance.CELL_SIZE
+                    row = y // instance.CELL_SIZE
+                    if instance.GRID_SIZE > row >= 0 == instance.board[row][col] and 0 <= col < instance.GRID_SIZE:
+                        instance.board[row][col] = current_player
+                        if check_win(row, col, current_player, instance):
+                            victory_text = f"Player {current_player} wins!"
+                            print(victory_text)
+                            running = False
+                        else:
+                            # Switch player if neither player have won
+                            current_player = 3 - current_player
+        # AI move
+        elif players[current_player-1].TYPE == "AI" and not testai.check_game_over(instance):
+            time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
             ai_row, ai_col = testai.ai_move(instance)
             testai.make_move((ai_row, ai_col), current_player, instance)
             if check_win(ai_row, ai_col, current_player, instance):
@@ -92,22 +138,6 @@ def run(instance):
                 running = False
             else:
                 current_player = 3 - current_player
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                x, y = event.pos
-                col = x // instance.CELL_SIZE
-                row = y // instance.CELL_SIZE
-                if instance.GRID_SIZE > row >= 0 == instance.board[row][col] and 0 <= col < instance.GRID_SIZE:
-                    instance.board[row][col] = current_player
-                    if check_win(row, col, current_player, instance):
-                        victory_text = f"Player {current_player} wins!"
-                        print(victory_text)
-                        running = False
-                    else:
-                        # Switch player if neither player have won
-                        current_player = 3 - current_player
         draw_board(instance)
         pygame.display.flip()
         window_name = "Gomoku -- Player " + str(current_player)

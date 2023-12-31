@@ -2,27 +2,34 @@ import random
 DEPTH = 5
 
 
-def check_line(row, col, dir_row, dir_col, instance):
+def check_line(row, col, direction, board):
     score_own = score_enemy = previous = 0
     multiplier = 1
     adjacency_loss = 1
-    board = instance.board
     for i in range(DEPTH-1):
         try:
-            if board[row + (dir_row * (i + 1))][col + (dir_col * (i + 1))] != 0:
-                if previous == board[row + (dir_row * (i+1))][col + (dir_col * (i+1))]:
+            if board[row + (direction[0] * (i + 1))][col + (direction[1] * (i + 1))] != 0:
+                if previous == board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))]:
                     multiplier *= (1 + multiplier)
                 else:
                     multiplier = 1
                     score_own = 0
                     score_enemy = 0
-                if board[row + (dir_row * (i+1))][col + (dir_col * (i+1))] == 1:
+                if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 1:
                     score_enemy += 2 * multiplier - i
-                elif board[row + (dir_row * (i+1))][col + (dir_col * (i+1))] == 2:
+                elif board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 2:
                     score_own += 3.5 * multiplier - i
-                previous = board[row + (dir_row * (i + 1))][col + (dir_col * (i + 1))]
+                previous = board[row + (direction[0] * (i + 1))][col + (direction[1] * (i + 1))]
             elif i == 0:
                 adjacency_loss = 8
+            try:
+                if board[row + direction[0]][col + direction[1]] == board[row - direction[0]][col - direction[1]]:
+                    if board[row + (direction[0])][col + direction[1]] == 1 and score_enemy > 10:
+                        score_enemy *= 4
+                    elif score_own > 10:
+                        score_own *= 4
+            except IndexError:
+                pass
         except IndexError:
             break
     score_own = score_own / adjacency_loss
@@ -43,7 +50,7 @@ def evaluate_board(instance):
                 score_own = score_enemy = 0
                 try:
                     for i in range(len(directions)):
-                        score_own_, score_enemy_ = check_line(row, col, directions[i][0], directions[i][1], instance)
+                        score_own_, score_enemy_ = check_line(row, col, directions[i], board)
                         score_own += score_own_
                         score_enemy += score_enemy_
                 except IndexError:
