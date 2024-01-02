@@ -2,6 +2,7 @@ import sys
 from tkinter import *
 import gomoku
 import filereader
+import stats
 from PIL import Image, ImageTk
 from multiprocessing import Process
 
@@ -9,9 +10,9 @@ from multiprocessing import Process
 game_instance = gomoku.GomokuGame(filereader.create_gomoku_game("consts.json"))
 
 root = Tk()
-root.geometry("170x232")
-root.minsize(170, 232)
-root.maxsize(170, 232)
+root.geometry("220x232")
+root.minsize(220, 232)
+root.maxsize(220, 232)
 root.title("Gomoku -- Main Menu")
 root.wm_iconphoto(False, ImageTk.PhotoImage(Image.open('res/ico.png')))
 
@@ -23,6 +24,8 @@ p1 = StringVar()
 p2 = StringVar()
 p1.set("Human")
 p2.set("AI")
+game_runs = StringVar()
+game_runs.set("1")
 
 
 def set_player_type(playerid):
@@ -31,7 +34,7 @@ def set_player_type(playerid):
     else:
         newtype = p2.get()
     gomoku.players[playerid].set_player(newtype, playerid)
-    print(newtype)
+
 
 def set_game_instance(new_instance):
     global game_instance
@@ -43,10 +46,15 @@ def run():
 
 
 def start_new_game():
-    # gomoku.player1.set_player("Human", 0)
-    # gomoku.player2.set_player("AI", 1)
-    root.wm_state('iconic')
-    gomoku.run(game_instance)
+    try:
+        runs = int(game_runs.get())
+        root.wm_state('iconic')
+        stats.setup_logging(p1.get(), p2.get())
+        for i in range(runs):
+            stats.log_message(f"Game {i+1} begins.")
+            gomoku.run(game_instance)
+    except ValueError:
+        print("Game runs value invalid.")
     game_over()
 
 
@@ -72,8 +80,12 @@ radiobutton3 = Radiobutton(input_canvas, text="Human", variable=p2, value="Human
 radiobutton3.grid(row=3, column=1, sticky="w")
 radiobutton4 = Radiobutton(input_canvas, text="AI", variable=p2, value="AI", command=lambda: set_player_type(1))
 radiobutton4.grid(row=4, column=1, sticky="w")
+gamerunslabel = Label(input_canvas, text="Number of games: ", font=(style_numbers[0], style_numbers[1]))
+gamerunslabel.grid(row=5, column=0, sticky="w")
+gamerunsentry = Entry(input_canvas, textvariable=game_runs)
+gamerunsentry.grid(row=5, column=1, sticky="w")
 button_2 = Button(input_canvas, text="Quit Game", bg=style_numbers[2], font=(style_numbers[0], style_numbers[1]), width=style_numbers[3], height=style_numbers[4], command=lambda: quit_game())
-button_2.grid(row=5, column=0, sticky="nsew")
+button_2.grid(row=7, column=0, sticky="nsew")
 
 
 def mainmenu_run():

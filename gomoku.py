@@ -2,6 +2,7 @@ import time
 import pygame
 import testai
 import random
+import stats
 
 
 class GomokuGame:
@@ -17,12 +18,17 @@ class GomokuGame:
         self.SLEEP_BEFORE_END = values[7]
         self.board = [[0] * self.GRID_SIZE for _ in range(self.GRID_SIZE)]
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
+        self.winning_cells = []
 
 
 class Player:
     def __init__(self, player_type, player_id):
         self.TYPE = str(player_type)
         self.ID = int(player_id)
+        self.moves = 0
+        self.wins = 0
+        self.losses = 0
+        self.score = 0
 
     def set_player(self, player_type, player_id):
         self.TYPE = str(player_type)
@@ -36,6 +42,25 @@ class Player:
 player1 = Player("Human", 0)
 player2 = Player("AI", 1)
 players = [player1, player2]
+
+
+def reset_player_stats():
+    for i in range(len(players)):
+        players[i].moves = 0
+        players[i].score = 0
+
+
+def update_player_stats(instance, winning_player):
+    global players
+    for i in range(len(players)):
+        if i == winning_player:
+            players[i].wins += 1
+            players[i].score = instance.GRID_SIZE**2 - players[i].moves
+        else:
+            players[i].losses += 1
+            players[i].score = -(instance.GRID_SIZE**2) + players[i].moves
+    stats.log_win(players)
+    reset_player_stats()
 
 
 def set_players(_players):
@@ -52,39 +77,50 @@ current_player = 1
 # Function to draw the game board
 def draw_board(instance):
     instance.screen.fill(instance.BOARD_COL)
+    cell_size = instance.CELL_SIZE
     for row in range(instance.GRID_SIZE):
         for col in range(instance.GRID_SIZE):
-            pygame.draw.rect(instance.screen, instance.LINE_COL, (col * instance.CELL_SIZE, row * instance.CELL_SIZE, instance.CELL_SIZE, instance.CELL_SIZE), 1)
+            pygame.draw.rect(instance.screen, instance.LINE_COL, (col * cell_size, row * cell_size, cell_size, cell_size), 1)
             if instance.board[row][col] == 1:
-                pygame.draw.circle(instance.screen, instance.P1COL, (col * instance.CELL_SIZE + instance.CELL_SIZE // 2, row * instance.CELL_SIZE + instance.CELL_SIZE // 2), instance.CELL_SIZE // 2 - 5)
+                pygame.draw.circle(instance.screen, instance.P1COL, (col * cell_size + cell_size // 2, row * cell_size + cell_size // 2), cell_size // 2 - 5)
             elif instance.board[row][col] == 2:
-                pygame.draw.circle(instance.screen, instance.P2COL, (col * instance.CELL_SIZE + instance.CELL_SIZE // 2, row * instance.CELL_SIZE + instance.CELL_SIZE // 2), instance.CELL_SIZE // 2 - 5)
+                pygame.draw.circle(instance.screen, instance.P2COL, (col * cell_size + cell_size // 2, row * cell_size + cell_size // 2), cell_size // 2 - 5)
+    # Draw the winning line
+    if instance.winning_cells:
+        start_row, start_col = instance.winning_cells[0]
+        end_row, end_col = instance.winning_cells[-1]
+        pygame.draw.line(instance.screen, (0, 255, 0),
+                         (start_col * cell_size + cell_size // 2, start_row * cell_size + cell_size // 2),
+                         (end_col * cell_size + cell_size // 2, end_row * cell_size + cell_size // 2), 5)
 
 
 def reset_game(instance):
     global current_player
     instance.board = [[0] * instance.GRID_SIZE for _ in range(instance.GRID_SIZE)]
     current_player = 1
-    print("reset game")
 
 
 def check_win(row, col, player, instance):
     directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
+    winning_cells = [(row, col)]
     for dr, dc in directions:
         count = 1
         for i in range(1, 5):
             r, c = row + i * dr, col + i * dc
             if 0 <= r < instance.GRID_SIZE and 0 <= c < instance.GRID_SIZE and instance.board[r][c] == player:
                 count += 1
+                winning_cells.append((r, c))
             else:
                 break
         for i in range(1, 5):
             r, c = row - i * dr, col - i * dc
             if 0 <= r < instance.GRID_SIZE and 0 <= c < instance.GRID_SIZE and instance.board[r][c] == player:
                 count += 1
+                winning_cells.append((r, c))
             else:
                 break
         if count >= 5:  # Victory condition
+            instance.winning_cells = winning_cells
             return True
     return False
 
@@ -106,8 +142,8 @@ def run(instance):
     pygame.display.set_icon(pygame.image.load('res/ico.png'))
     pygame.init()
     pygame.display.set_caption(window_name)
+    instance.winning_cells = []
     running = True
-    print(players[0].TYPE, players[1].TYPE)
     while running and not check_board_full(instance):
         # Human move
         if players[current_player-1].TYPE == "Human":
@@ -130,10 +166,11 @@ def run(instance):
         # AI move
         elif players[current_player-1].TYPE == "AI" and not testai.check_game_over(instance):
             time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
-            ai_row, ai_col = testai.ai_move(instance)
+            ai_row, ai_col = testai.ai_move(instance, players[current_player-1].ID)
             testai.make_move((ai_row, ai_col), current_player, instance)
+            players[current_player-1].moves += 1
             if check_win(ai_row, ai_col, current_player, instance):
-                victory_text = "AI wins!"
+                victory_text = f"AI {players[current_player-1].ID} wins!"
                 print(victory_text)
                 running = False
             else:
@@ -145,6 +182,7 @@ def run(instance):
 
     # End game
     pygame.display.set_caption("Gomoku -- " + victory_text)
+    update_player_stats(instance, current_player-1)
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
 
