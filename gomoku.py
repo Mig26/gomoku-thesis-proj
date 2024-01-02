@@ -19,6 +19,8 @@ class GomokuGame:
         self.board = [[0] * self.GRID_SIZE for _ in range(self.GRID_SIZE)]
         self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
         self.winning_cells = []
+        self.current_game = 0
+        self.last_round = False
 
 
 class Player:
@@ -29,6 +31,10 @@ class Player:
         self.wins = 0
         self.losses = 0
         self.score = 0
+        self.sum_score = 0
+        self.avg_score = 0
+        self.all_moves = []
+        self.avg_moves = 0
 
     def set_player(self, player_type, player_id):
         self.TYPE = str(player_type)
@@ -37,6 +43,20 @@ class Player:
 
     def get_player(self):
         return self
+
+    def calculate_score(self, max_score, is_winner, game_number):
+        if is_winner:
+            self.score = max_score - self.moves
+        else:
+            self.score = -max_score + self.moves
+        self.sum_score += self.score
+        self.avg_score = self.sum_score / game_number
+        self.all_moves.append(self.moves)
+        self.avg_moves = sum(self.all_moves) / len(self.all_moves)
+
+    def reset_score(self):
+        self.score = 0
+        self.moves = 0
 
 
 player1 = Player("Human", 0)
@@ -55,12 +75,21 @@ def update_player_stats(instance, winning_player):
     for i in range(len(players)):
         if i == winning_player:
             players[i].wins += 1
-            players[i].score = instance.GRID_SIZE**2 - players[i].moves
+            # players[i].score = instance.GRID_SIZE**2 - players[i].moves
+            players[i].calculate_score(instance.GRID_SIZE**2, True, instance.current_game)
+            # players[i].reset_score()
         else:
             players[i].losses += 1
-            players[i].score = -(instance.GRID_SIZE**2) + players[i].moves
+            # players[i].score = -(instance.GRID_SIZE**2) + players[i].moves
+            players[i].calculate_score(instance.GRID_SIZE**2, False, instance.current_game)
+            # players[i].reset_score()
     stats.log_win(players)
     reset_player_stats()
+    if instance.last_round:
+        stats.log_message(f"Statistics:\n{players[0].TYPE} {players[0].ID}: wins: {players[0].wins} - average score: {players[0].avg_score} - average moves: {players[0].avg_moves}.\n"
+                          f"{players[1].TYPE} {players[1].ID}: wins: {players[1].wins} - average score: {players[1].avg_score} - average moves: {players[1].avg_moves}.")
+        players[0].reset_score()
+        players[1].reset_score()
 
 
 def set_players(_players):
@@ -158,20 +187,18 @@ def run(instance):
                         instance.board[row][col] = current_player
                         if check_win(row, col, current_player, instance):
                             victory_text = f"Player {current_player} wins!"
-                            print(victory_text)
                             running = False
                         else:
                             # Switch player if neither player have won
                             current_player = 3 - current_player
         # AI move
         elif players[current_player-1].TYPE == "AI" and not testai.check_game_over(instance):
-            time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
+            time.sleep(random.uniform(0.05, 0.5))   # randomize ai "thinking" time
             ai_row, ai_col = testai.ai_move(instance, players[current_player-1].ID)
             testai.make_move((ai_row, ai_col), current_player, instance)
             players[current_player-1].moves += 1
             if check_win(ai_row, ai_col, current_player, instance):
                 victory_text = f"AI {players[current_player-1].ID} wins!"
-                print(victory_text)
                 running = False
             else:
                 current_player = 3 - current_player
@@ -181,6 +208,7 @@ def run(instance):
         pygame.display.set_caption(window_name)
 
     # End game
+    stats.log_message(victory_text)
     pygame.display.set_caption("Gomoku -- " + victory_text)
     update_player_stats(instance, current_player-1)
     time.sleep(instance.SLEEP_BEFORE_END)

@@ -38,10 +38,13 @@ def check_line(row, col, direction, board, ai_id):
         try:
             # Double the score if there is the same piece on the opposing direction
             if board[row + direction[0]][col + direction[1]] == board[row - direction[0]][col - direction[1]]:
-                if board[row + (direction[0])][col + direction[1]] == 1:
-                    score_black += score_black
-                if board[row + (direction[0])][col + direction[1]] == 2:
-                    score_white += score_white
+                for i in range(DEPTH-1):
+                    if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 1:
+                        score_black += score_black
+                    if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 2:
+                        score_white += score_white
+                    else:
+                        break
         except IndexError:
             pass
     score_white = score_white / adjacency_loss
