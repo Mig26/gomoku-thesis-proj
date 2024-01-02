@@ -26,6 +26,8 @@ p1.set("Human")
 p2.set("AI")
 game_runs = StringVar()
 game_runs.set("1")
+delayvar = BooleanVar()
+delayvar.set(True)
 
 
 def set_player_type(playerid):
@@ -50,6 +52,7 @@ def start_new_game():
         runs = int(game_runs.get())
         root.wm_state('iconic')
         stats.setup_logging(p1.get(), p2.get())
+        game_instance.ai_delay = delayvar.get()
         for i in range(runs):
             stats.log_message(f"Game {i+1} begins.")
             game_instance.current_game = i+1
@@ -87,6 +90,8 @@ gamerunslabel = Label(input_canvas, text="Number of games: ", font=(style_number
 gamerunslabel.grid(row=5, column=0, sticky="w")
 gamerunsentry = Entry(input_canvas, textvariable=game_runs)
 gamerunsentry.grid(row=5, column=1, sticky="w")
+delaybutton = Checkbutton(input_canvas, text="Use AI Delay", variable=delayvar, font=(style_numbers[0], style_numbers[1]))
+delaybutton.grid(row=6, column=0, sticky="w")
 button_2 = Button(input_canvas, text="Quit Game", bg=style_numbers[2], font=(style_numbers[0], style_numbers[1]), width=style_numbers[3], height=style_numbers[4], command=lambda: quit_game())
 button_2.grid(row=7, column=0, sticky="nsew")
 

@@ -21,6 +21,7 @@ class GomokuGame:
         self.winning_cells = []
         self.current_game = 0
         self.last_round = False
+        self.ai_delay = False
 
 
 class Player:
@@ -58,6 +59,16 @@ class Player:
         self.score = 0
         self.moves = 0
 
+    def reset_all_stats(self):
+        self.moves = 0
+        self.wins = 0
+        self.losses = 0
+        self.score = 0
+        self.sum_score = 0
+        self.avg_score = 0
+        self.all_moves = []
+        self.avg_moves = 0
+
 
 player1 = Player("Human", 0)
 player2 = Player("AI", 1)
@@ -66,8 +77,7 @@ players = [player1, player2]
 
 def reset_player_stats():
     for i in range(len(players)):
-        players[i].moves = 0
-        players[i].score = 0
+        players[i].reset_score()
 
 
 def update_player_stats(instance, winning_player):
@@ -75,21 +85,17 @@ def update_player_stats(instance, winning_player):
     for i in range(len(players)):
         if i == winning_player:
             players[i].wins += 1
-            # players[i].score = instance.GRID_SIZE**2 - players[i].moves
             players[i].calculate_score(instance.GRID_SIZE**2, True, instance.current_game)
-            # players[i].reset_score()
         else:
             players[i].losses += 1
-            # players[i].score = -(instance.GRID_SIZE**2) + players[i].moves
             players[i].calculate_score(instance.GRID_SIZE**2, False, instance.current_game)
-            # players[i].reset_score()
     stats.log_win(players)
     reset_player_stats()
     if instance.last_round:
         stats.log_message(f"Statistics:\n{players[0].TYPE} {players[0].ID}: wins: {players[0].wins} - average score: {players[0].avg_score} - average moves: {players[0].avg_moves}.\n"
                           f"{players[1].TYPE} {players[1].ID}: wins: {players[1].wins} - average score: {players[1].avg_score} - average moves: {players[1].avg_moves}.")
-        players[0].reset_score()
-        players[1].reset_score()
+        players[0].reset_all_stats()
+        players[1].reset_all_stats()
 
 
 def set_players(_players):
@@ -193,7 +199,8 @@ def run(instance):
                             current_player = 3 - current_player
         # AI move
         elif players[current_player-1].TYPE == "AI" and not testai.check_game_over(instance):
-            time.sleep(random.uniform(0.05, 0.5))   # randomize ai "thinking" time
+            if instance.ai_delay:
+                time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
             ai_row, ai_col = testai.ai_move(instance, players[current_player-1].ID)
             testai.make_move((ai_row, ai_col), current_player, instance)
             players[current_player-1].moves += 1

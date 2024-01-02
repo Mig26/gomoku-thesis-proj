@@ -26,23 +26,19 @@ def check_line(row, col, direction, board, ai_id):
                         score_black += 2 * multiplier**2 - i
                     elif ai_id == 1:
                         score_white += 3.5 * multiplier - i
-                # if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 1:
-                #     score_enemy += 2 * multiplier**2 - i
-                # elif board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 2:
-                #     score_own += 3.5 * multiplier - i
                 previous = board_score
             elif i == 0:
                 adjacency_loss = 8
         except IndexError:
             break
         try:
-            # Double the score if there is the same piece on the opposing direction
+            # increase the score if there is the same piece on the opposing direction
             if board[row + direction[0]][col + direction[1]] == board[row - direction[0]][col - direction[1]]:
                 for i in range(DEPTH-1):
                     if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 1:
-                        score_black += score_black
+                        score_black *= (i+2)
                     if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 2:
-                        score_white += score_white
+                        score_white *= (i+2)
                     else:
                         break
         except IndexError:
