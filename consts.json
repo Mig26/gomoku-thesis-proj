@@ -1,14 +1,13 @@
 {
     "gomoku" : [
         {
-            "_width": 512,
-            "_height": 512,
-            "_grid_size": 15,
-            "_p1col": "(0, 0, 0)",
-            "_p2col": "(255, 255, 255)",
+            "cell_size": 32,
+            "grid_size": 15,
+            "p1col": "(0, 0, 0)",
+            "p2col": "(255, 255, 255)",
             "board_col": "(232, 220, 202)",
-            "_line_col": "(5, 5, 5)",
-            "_sleep": 5
+            "line_col": "(5, 5, 5)",
+            "sleep": 5
         }
     ]
 }

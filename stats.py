@@ -2,6 +2,8 @@ import logging
 import datetime
 import os
 
+should_log = True
+
 
 def setup_logging(player0_type, player1_type):
     log_folder = "logs"
@@ -15,11 +17,15 @@ def setup_logging(player0_type, player1_type):
         format="%(asctime)s [%(levelname)s]: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S"
     )
-    log_message("Log file created.")
+    if should_log:
+        log_message("Log file created.")
+    else:
+        log_message("Log file NOT created.")
 
 
 def log_message(message):
-    logging.info(message)
+    if should_log:
+        logging.info(message)
     print(message)
 
 
@@ -27,5 +33,6 @@ def log_win(players):
     for i in range(len(players)):
         log = f"{players[i].TYPE} {players[i].ID} - score: {players[i].score} - moves: {players[i].moves} - wins: {players[i].wins} - losses: {players[i].losses}"
         print(log)
-        logging.info(log)
+        if should_log:
+            logging.info(log)
 
