@@ -7,44 +7,60 @@ def check_line(row, col, direction, board, ai_id):
     multiplier = 1
     adjacency_loss = 1
     for i in range(DEPTH-1):
+        board_score = board[row + (direction[0] * (i + 1))][col + (direction[1] * (i + 1))]
         try:
-            board_score = board[row + (direction[0] * (i + 1))][col + (direction[1] * (i + 1))]
             if board_score != 0:
                 if previous == board_score:
                     multiplier *= (1 + multiplier)
                 else:
                     multiplier = 1
-                    score_white = 0
-                    score_black = 0
+                    # score_white = 0
+                    # score_black = 0
                 if board_score == 1:    # black piece
                     if ai_id == 0:
                         score_white += 3.5 * multiplier - i
                     elif ai_id == 1:
-                        score_black += 2 * multiplier**2 - i
+                        score_black += 2 * multiplier - i
                 elif board_score == 2:  # white piece
                     if ai_id == 0:
-                        score_black += 2 * multiplier**2 - i
+                        score_black += 3.5 * multiplier - i
                     elif ai_id == 1:
-                        score_white += 3.5 * multiplier - i
+                        score_white += 2 * multiplier - i
                 previous = board_score
             elif i == 0:
-                adjacency_loss = 8
+                adjacency_loss *= 8
+            elif i > 1 and multiplier > 3:
+                adjacency_loss /= 2
         except IndexError:
             break
-        try:
+    try:
+        if board[row + direction[0]][col + direction[1]] != 0:
             # increase the score if there is the same piece on the opposing direction
-            if board[row + direction[0]][col + direction[1]] == board[row - direction[0]][col - direction[1]]:
-                for i in range(DEPTH-1):
-                    if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 1:
-                        score_black *= (i+2)
-                    if board[row + (direction[0] * (i+1))][col + (direction[1] * (i+1))] == 2:
-                        score_white *= (i+2)
-                    else:
+            board_piece = board[row + direction[0]][col + direction[1]]
+            test_piece = board[row - direction[0]][col - direction[1]]
+            if board_piece == test_piece:
+                for j in range(DEPTH-1):
+                    try:
+                        current_piece = board[row + (direction[0] * (j+1))][col + (direction[1] * (j+1))]
+                        if current_piece == 1 and current_piece == board_piece:
+                            score_black *= ((j+1)*2)
+                            adjacency_loss /= 2
+                        if current_piece == 2 and current_piece == board_piece:
+                            score_white *= ((j+1)*2)
+                            adjacency_loss /= 2
+                        else:
+                            if j == 0:
+                                score_white /= 2
+                                score_black /= 2
+                            break
+                    except IndexError:
                         break
-        except IndexError:
-            pass
+    except IndexError:
+        pass
     score_white = score_white / adjacency_loss
     score_black = score_black / adjacency_loss
+    if int(score_white) > 0 or int(score_black) > 0:
+        print(row, col, f"white: {int(score_white)}, black: {int(score_black)}")
     return int(score_white), int(score_black)
 
 
