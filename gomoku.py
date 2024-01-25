@@ -2,6 +2,7 @@ import operator
 import time
 import pygame
 import testai
+import ai
 import random
 import stats
 
@@ -81,6 +82,7 @@ class Player:
         self.avg_moves = 0
 
 
+# Set default player types. Can be changed on runtime
 player1 = Player("Human", 0)
 player2 = Player("AI", 1)
 players = [player1, player2]

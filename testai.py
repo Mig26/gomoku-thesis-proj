@@ -14,18 +14,27 @@ def check_line(row, col, direction, board, ai_id):
                     multiplier *= (1 + multiplier)
                 else:
                     multiplier = 1
+                    score_white /= 2
+                    score_black /= 2
                     # score_white = 0
                     # score_black = 0
                 if board_score == 1:    # black piece
                     if ai_id == 0:
-                        score_white += 3.5 * multiplier - i
+                        score_white += 5 * multiplier - i
                     elif ai_id == 1:
                         score_black += 2 * multiplier - i
+                        if i >= 3 and multiplier > 3:
+                            score_black **= 2
+                            break
                 elif board_score == 2:  # white piece
                     if ai_id == 0:
-                        score_black += 3.5 * multiplier - i
+                        score_black += 5 * multiplier - i
                     elif ai_id == 1:
                         score_white += 2 * multiplier - i
+                        if i >= 3 and multiplier > 3:
+                            score_white **= 2
+                            print(f"white score squared at {row},{col}")
+                            break
                 previous = board_score
             elif i == 0:
                 adjacency_loss *= 8
