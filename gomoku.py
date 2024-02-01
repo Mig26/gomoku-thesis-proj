@@ -39,10 +39,14 @@ class Player:
         self.avg_moves = 0
         self.weighed_scores = []
         self.win_rate = 0
+        if self.ID == 2:
+            self.ai = ai.GomokuAI()
 
     def set_player(self, player_type, player_id):
         self.TYPE = str(player_type)
         self.ID = int(player_id)
+        if self.ID == 2:
+            self.ai = ai.GomokuAI()
         print("Set player", self.ID, "to", self.TYPE)
 
     def get_player(self):
