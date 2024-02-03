@@ -48,7 +48,8 @@ class GomokuAI:
         return ConvNet(input_dim)
 
     def get_state(self, game):
-        pass
+        return torch.tensor(game, dtype=torch.float32).unsqueeze(0)
+
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
@@ -109,8 +110,8 @@ class GomokuAI:
             action = self.get_random_action()
         else:
             # Exploitation: Best Move According to the Model
-            state_tensor = torch.tensor(state, dtype=torch.float)
-            prediction = self.model(state_tensor)
+            current_state = self.get_state(state)
+            prediction = self.model(current_state)
             action = torch.argmax(prediction).item()  # Convert to actual move/action
 
         # Decay Epsilon Over Time
@@ -120,8 +121,14 @@ class GomokuAI:
         return action
 
     def get_random_action(self):
-        # Implement a method to get a random valid move
-        pass
+        while True:
+            p = random.randint(0, len(self.game))
+            if self.game[p] == 0:
+                return p
+
+    def ai_move(self):
+        board_state = self.get_state(self.game)
+
 
     def train(self):    # Siirrä tämä koodi gomoku.py
         plot_score = []

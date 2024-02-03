@@ -68,8 +68,6 @@ def check_line(row, col, direction, board, ai_id):
         pass
     score_white = score_white / adjacency_loss
     score_black = score_black / adjacency_loss
-    if int(score_white) > 0 or int(score_black) > 0:
-        print(row, col, f"white: {int(score_white)}, black: {int(score_black)}")
     return int(score_white), int(score_black)
 
 
