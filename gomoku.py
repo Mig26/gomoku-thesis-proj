@@ -44,8 +44,8 @@ class Player:
     def set_player(self, player_type, player_id):
         self.TYPE = str(player_type)
         self.ID = int(player_id)
-        if self.ID == 2:
-            self.ai = ai.GomokuAI()
+        #if self.ID == 2:
+            #self.ai = ai.GomokuAI()
         print("Set player", self.ID, "to", self.TYPE)
 
     def get_player(self):
@@ -214,7 +214,8 @@ def run(instance):
     global window_name, victory_text, current_player
     for p in players:
         if p.TYPE == "MM-AI":
-            p.ai.set_game(instance.board)
+    #        p.ai.set_game(instance.board)
+            p.ai.model.load_model()
     # Initialize Pygame
     pygame.display.set_icon(pygame.image.load('res/ico.png'))
     pygame.init()
@@ -284,6 +285,9 @@ def run(instance):
     stats.log_message(victory_text)
     pygame.display.set_caption("Gomoku -- " + victory_text)
     update_player_stats(instance, current_player-1)
+    for p in players:
+        if p.TYPE == "MM-AI":
+            p.ai.model.save_model()
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
 

@@ -24,13 +24,30 @@ class ConvNet(nn.Module):
         # self.fc2 = nn.Linear(1024, 1)
 
     def forward(self, x):
-        print("Len of x: ", len(self.conv1(x)))
         x = torch.relu(self.conv1(x))
         x = torch.relu(self.conv2(x))
         x = x.view(x.size(0), -1) # Flatten the tensor
         x = torch.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+
+    def load_model(self, file_name='model.pth'):
+        model_folder = './data/'
+        full_path = os.path.join(model_folder, file_name)
+        if os.path.isfile(full_path):
+            print("A model exist, loading model.")
+            self.load_state_dict(torch.load(full_path))
+        else:
+            print("No model exist. Creating a new model.")
+
+    def save_model(self, file_name='model.pth'):
+        model_folder = './data/'
+        if not os.path.exists(model_folder):
+            os.makedirs(model_folder)
+        full_path = os.path.join(model_folder, file_name)
+        torch.save(self.state_dict(), full_path)
+        print(f"Model saved to directory {full_path}.")
+
 
 class GomokuAI:
     def __init__(self, _board_size = 15):
@@ -41,10 +58,11 @@ class GomokuAI:
         # self.len_state = len(self.State().to_array())
         self.board_size = _board_size
         self.gamma = 0.9
-        self.epsilon = 0
+        self.epsilon = 0.015
         self.memory = deque(maxlen=MAX_MEMORY)
         #self.model = Linear_QNet(self.board_size**2, (self.board_size**2)*2, 1)
         self.model = self.build_model(self.board_size)
+        self.model.load_model()
         self.trainer = QTrainer(self.model, lr=self.learning_rate, gamma=self.gamma)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
@@ -125,12 +143,6 @@ class GomokuAI:
         # loss.backward()
         self.optimizer.step()
 
-    def save_model(self, file_name='model.pth'):
-        model_folder = './data'
-        if not os.path.exists(model_folder):
-            os.makdirs(model_folder)
-        torch.save(self.state_dict(), file_name)
-
     def get_valid_moves(self, board):
         valid_moves = []
         for row in range(len(board)):
@@ -168,7 +180,7 @@ class GomokuAI:
 
     def get_random_action(self):
         while True:
-            p = random.randint(0, len(self.game))
+            p = random.randint(0, len(self.game)-1)
             if self.game[p] == 0:
                 return p
 
@@ -182,7 +194,6 @@ class GomokuAI:
                     if j == 0:
                         first_spot = board[move[0]+((j+1)*directions[i][0])][move[1]+((j+1)*directions[i][1])]
                     current_spot = board[move[0]+((j+1)*directions[i][0])][move[1]+((j+1)*directions[i][1])]
-                    print(current_spot)
                     if current_spot == 1 or current_spot == 2:  # run only if current spot is not empty
                         if j > 0:
                             previous_spot = board[move[0] + ((j - 1) * directions[i][0])][
@@ -208,7 +219,6 @@ class GomokuAI:
                 score += current_score
         except IndexError:
             pass
-        print("score: ", score)
         return score
 
 
