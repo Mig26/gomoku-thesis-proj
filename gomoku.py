@@ -39,8 +39,7 @@ class Player:
         self.avg_moves = 0
         self.weighed_scores = []
         self.win_rate = 0
-        if self.ID == 2:
-            self.ai = ai.GomokuAI()
+        self.ai = ai.GomokuAI()
 
     def set_player(self, player_type, player_id):
         self.TYPE = str(player_type)
@@ -213,6 +212,9 @@ def check_board_full(instance):
 def run(instance):
     # Main game loop
     global window_name, victory_text, current_player
+    for p in players:
+        if p.TYPE == "MM-AI":
+            p.ai.set_game(instance.board)
     # Initialize Pygame
     pygame.display.set_icon(pygame.image.load('res/ico.png'))
     pygame.init()
@@ -251,10 +253,28 @@ def run(instance):
                     running = False
                 else:
                     current_player = 3 - current_player
+            # MM-AI move
+            elif players[current_player-1].TYPE == "MM-AI":
+                mm_ai = players[current_player-1].ai
+                mm_ai.set_game(instance.board)
+                mm_ai.get_state(instance.board)
+                old_state = instance.board
+                action = mm_ai.get_action(instance.board)
+                instance.board[action[0]][action[1]] = current_player
+                short_score = mm_ai.calculate_short_score(action, instance.board)
+                game_over = check_win(action[0], action[1], current_player, instance)
+                mm_ai.train_short_memory(old_state, action, short_score, instance.board, game_over)
+                players[current_player - 1].moves += 1
+                if game_over:
+                    victory_text = f"MM-AI {players[current_player - 1].ID} wins!"
+                    running = False
+                else:
+                    current_player = 3 - current_player
             draw_board(instance)
             pygame.display.flip()
             window_name = "Gomoku -- Player " + str(current_player)
             pygame.display.set_caption(window_name)
+            # MM-AI move
         else:
             victory_text = "TIE"
             current_player = -1

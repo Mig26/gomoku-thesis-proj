@@ -33,7 +33,6 @@ def check_line(row, col, direction, board, ai_id):
                         score_white += 2 * multiplier - i
                         if i >= 3 and multiplier > 3:
                             score_white **= 2
-                            print(f"white score squared at {row},{col}")
                             break
                 previous = board_score
             elif i == 0:

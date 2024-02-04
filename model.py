@@ -49,7 +49,7 @@ class QTrainer:
             done = (done,)
 
         # 1: predicted Q values with current state
-        pred = self.model(state)
+        pred = self.model(state).gather(1, action)
 
         target = pred.clone()
         for idx in range(len(done)):

@@ -6,8 +6,8 @@ import stats
 from PIL import Image, ImageTk
 from multiprocessing import Process
 
-WIDTH = 220
-HEIGHT = 250
+WIDTH = 230
+HEIGHT = 270
 game_instance = gomoku.GomokuGame(filereader.create_gomoku_game("consts.json"))
 
 root = Tk()
