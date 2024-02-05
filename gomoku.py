@@ -40,6 +40,7 @@ class Player:
         self.weighed_scores = []
         self.win_rate = 0
         self.ai = ai.GomokuAI()
+        self.final_action = None
 
     def set_player(self, player_type, player_id):
         self.TYPE = str(player_type)
@@ -87,7 +88,7 @@ class Player:
 
 # Set default player types. Can be changed on runtime
 player1 = Player("Human", 0)
-player2 = Player("AI", 1)
+player2 = Player("MM-AI", 1)
 players = [player1, player2]
 
 
@@ -115,12 +116,12 @@ def update_player_stats(instance, winning_player):
         for i in range(len(players)):
             players[i].calculate_score(0, False, instance.current_game)
     stats.log_win(players)
-    reset_player_stats()
+    # reset_player_stats()
     if instance.last_round:
         stats.log_message(f"\nStatistics:\n{players[0].TYPE} {players[0].ID}:\nwins: {players[0].wins} - win rate: {players[0].win_rate} - average score: {players[0].avg_score} - weighed score: {sum(players[0].weighed_scores)/len(players[0].weighed_scores)} - average moves: {players[0].avg_moves}.\n"
                           f"{players[1].TYPE} {players[1].ID}:\nwins: {players[1].wins} - win rate: {players[1].win_rate} - average score: {players[1].avg_score} - weighed score: {sum(players[1].weighed_scores)/len(players[1].weighed_scores)} - average moves: {players[1].avg_moves}.")
-        players[0].reset_all_stats()
-        players[1].reset_all_stats()
+        # players[0].reset_all_stats()
+        # players[1].reset_all_stats()
 
 
 def set_players(_players):
@@ -256,6 +257,8 @@ def run(instance):
                     current_player = 3 - current_player
             # MM-AI move
             elif players[current_player-1].TYPE == "MM-AI":
+                if instance.ai_delay:
+                    time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
                 mm_ai = players[current_player-1].ai
                 mm_ai.set_game(instance.board)
                 mm_ai.get_state(instance.board)
@@ -263,8 +266,13 @@ def run(instance):
                 action = mm_ai.get_action(instance.board)
                 instance.board[action[0]][action[1]] = current_player
                 short_score = mm_ai.calculate_short_score(action, instance.board)
+                max_score = mm_ai.calculate_short_max_score(instance.board)
+                score = short_score / (max_score/2) - 1
                 game_over = check_win(action[0], action[1], current_player, instance)
-                mm_ai.train_short_memory(old_state, action, short_score, instance.board, game_over)
+                # Train the AI
+                mm_ai.remember(old_state, action, score, instance.board, game_over)
+                mm_ai.train_short_memory(old_state, action, score, instance.board, game_over)
+                players[current_player-1].final_action = action
                 players[current_player - 1].moves += 1
                 if game_over:
                     victory_text = f"MM-AI {players[current_player - 1].ID} wins!"
@@ -275,7 +283,6 @@ def run(instance):
             pygame.display.flip()
             window_name = "Gomoku -- Player " + str(current_player)
             pygame.display.set_caption(window_name)
-            # MM-AI move
         else:
             victory_text = "TIE"
             current_player = -1
@@ -285,9 +292,15 @@ def run(instance):
     stats.log_message(victory_text)
     pygame.display.set_caption("Gomoku -- " + victory_text)
     update_player_stats(instance, current_player-1)
+    # For any MM-AI, train for long memory and save model
     for p in players:
         if p.TYPE == "MM-AI":
+            p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
+            p.ai.train_long_memory()
             p.ai.model.save_model()
+        p.reset_score()
+        if instance.last_round:
+            p.reset_all_stats()
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
 
