@@ -293,6 +293,7 @@ def run(instance):
     pygame.display.set_caption("Gomoku -- " + victory_text)
     update_player_stats(instance, current_player-1)
     # For any MM-AI, train for long memory and save model
+    data = {}
     for p in players:
         if p.TYPE == "MM-AI":
             p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
@@ -300,7 +301,11 @@ def run(instance):
             p.ai.model.save_model()
         p.reset_score()
         if instance.last_round:
+            if p.TYPE == "MM-AI":
+                data[f"{p.TYPE} {p.ID}"] = p.weighed_scores
             p.reset_all_stats()
+    if len(data) > 0:
+        stats.plot_graph(data, 'weighed scores')
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
 

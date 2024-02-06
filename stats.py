@@ -1,6 +1,9 @@
 import logging
+import math
 import datetime
 import os
+import matplotlib
+import matplotlib.pyplot as plt
 
 should_log = True
 
@@ -36,3 +39,17 @@ def log_win(players):
         if should_log:
             logging.info(log)
 
+
+def plot_graph(data: dict, data_name='data', title='title'):
+    colors = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
+    plt.figure(figsize=(10, 6))
+    for k, v in data.items():
+    #for d in range(len(data)):
+        #k, v = data[d]
+        print(k)
+        plt.plot(v, 'o', label=k)
+        plt.ylabel(data_name)
+        plt.xlabel('round')
+    plt.legend()
+    plt.title(title)
+    plt.show()
