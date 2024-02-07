@@ -55,12 +55,12 @@ class GomokuAI:
     def __init__(self, _board_size = 15):
         self.n_games = 0
         self.game = None
-        self.learning_rate = 0.00025
+        self.learning_rate = 0.0025
         # self.len_action = len(self.Action().to_array())
         # self.len_state = len(self.State().to_array())
         self.board_size = _board_size
         self.gamma = 0.2
-        self.epsilon = 0.25
+        self.epsilon = 0.15
         self.memory = deque(maxlen=MAX_MEMORY)
         #self.model = Linear_QNet(self.board_size**2, (self.board_size**2)*2, 1)
         self.model = self.build_model(self.board_size**2)
@@ -69,12 +69,14 @@ class GomokuAI:
         self.trainer = QTrainer(self.model, lr=self.learning_rate, gamma=self.gamma)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
+        # self.criterion = nn.ReLU()
+        self.loss = 0
 
     def set_game(self, _game):
         self.game = _game
 
     def build_model(self, input_dim: int) -> ConvNet:
-        return ConvNet(input_dim, input_dim*2, 128)
+        return ConvNet(input_dim, input_dim*2, 256)
 
     def get_state(self, game):
         return torch.tensor(game, dtype=torch.float32).unsqueeze(0)
@@ -111,6 +113,7 @@ class GomokuAI:
         loss.requires_grad_(requires_grad=True)
         self.optimizer.zero_grad(set_to_none=False)
         loss.backward()
+        self.loss = loss.detach().numpy()    # for logging purposes
         self.optimizer.step()
 
     def train_short_memory(self, state, action, reward, next_state, done):
@@ -132,7 +135,8 @@ class GomokuAI:
         loss = self.criterion(q_pred, q_target.unsqueeze(1))
         loss.requires_grad_(requires_grad=True)
         self.optimizer.zero_grad()
-        loss.backward()
+        # loss.backward()
+        self.loss = loss.detach().numpy()    # for logging purposes
         self.optimizer.step()
 
     def get_valid_moves(self, board):

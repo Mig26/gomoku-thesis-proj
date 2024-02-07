@@ -38,8 +38,11 @@ class Player:
         self.all_moves = []
         self.avg_moves = 0
         self.weighed_scores = []
+        self.score_loss = []
         self.weighed_moves = []
+        self.move_loss = []
         self.final_move_scores = []
+        self.final_move_loss = []
         self.win_rate = 0
         self.ai = ai.GomokuAI()
         self.final_action = None
@@ -77,6 +80,7 @@ class Player:
         self.score = 0
         self.moves = 0
         self.weighed_moves = []
+        self.move_loss = []
 
     def reset_all_stats(self):
         self.moves = 0
@@ -86,9 +90,12 @@ class Player:
         self.sum_score = 0
         self.avg_score = 0
         self.weighed_scores = []
+        self.score_loss = []
         self.all_moves = []
         self.weighed_moves = []
+        self.move_loss = []
         self.final_move_scores = []
+        self.final_move_loss = []
         self.avg_moves = 0
 
 
@@ -283,6 +290,7 @@ def run(instance):
                 # Train the AI
                 mm_ai.remember(old_state, action, score, instance.board, game_over)
                 mm_ai.train_short_memory(old_state, action, score, instance.board, game_over)
+                players[current_player - 1].move_loss.append(mm_ai.loss)
                 players[current_player-1].final_action = action
                 players[current_player - 1].moves += 1
                 if game_over:
@@ -305,10 +313,14 @@ def run(instance):
     update_player_stats(instance, current_player-1)
     # For any MM-AI, train for long memory and save model
     data = {}
+    loss_data = {}
     for p in players:
         if p.TYPE == "MM-AI":
             p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
             p.ai.train_long_memory()
+            p.score_loss.append(p.ai.loss)
+            move_loss = [float(val) for val in p.move_loss]
+            p.final_move_loss.append(sum(move_loss)/len(move_loss))
             p.ai.model.save_model()
             p.final_move_scores.append(sum(p.weighed_moves)/len(p.weighed_moves))
         p.reset_score()
@@ -316,9 +328,13 @@ def run(instance):
             if p.TYPE == "MM-AI":
                 data[f"{p.TYPE} {p.ID}: final scores"] = p.weighed_scores
                 data[f"{p.TYPE} {p.ID}: average moves"] = p.final_move_scores
+                loss_data[f"{p.TYPE} {p.ID}: score loss"] = [float(val) for val in p.score_loss]
+                loss_data[f"{p.TYPE} {p.ID}: move loss"] = p.final_move_loss
             p.reset_all_stats()
     if len(data) > 0:
         stats.plot_graph(data, 'normalized scores')
+    if len(loss_data) > 0:
+        stats.plot_graph(loss_data, 'loss data')
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
 
