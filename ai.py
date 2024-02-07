@@ -109,7 +109,6 @@ class GomokuAI:
 
         # Loss and backpropagation
         loss = self.criterion(q_pred, q_target.unsqueeze(1))
-        print(f"loss: {loss}")
         loss.requires_grad_(requires_grad=True)
         self.optimizer.zero_grad(set_to_none=False)
         loss.backward()

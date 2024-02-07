@@ -323,6 +323,8 @@ def run(instance):
             p.final_move_loss.append(sum(move_loss)/len(move_loss))
             p.ai.model.save_model()
             p.final_move_scores.append(sum(p.weighed_moves)/len(p.weighed_moves))
+            stats.log_message(f"{p.TYPE} {p.ID}: score loss: {float(p.ai.loss)}")
+            stats.log_message(f"{p.TYPE} {p.ID}: move loss: {sum(p.move_loss)/len(p.move_loss)}")
         p.reset_score()
         if instance.last_round:
             if p.TYPE == "MM-AI":
@@ -330,6 +332,8 @@ def run(instance):
                 data[f"{p.TYPE} {p.ID}: average moves"] = p.final_move_scores
                 loss_data[f"{p.TYPE} {p.ID}: score loss"] = [float(val) for val in p.score_loss]
                 loss_data[f"{p.TYPE} {p.ID}: move loss"] = p.final_move_loss
+                stats.log_message(f"{p.TYPE} {p.ID}: average score loss: {sum([float(val) for val in p.score_loss]) / len([float(val) for val in p.score_loss])}")
+                stats.log_message(f"{p.TYPE} {p.ID}: average move loss: {sum(p.final_move_loss) / len(p.final_move_loss)}")
             p.reset_all_stats()
     if len(data) > 0:
         stats.plot_graph(data, 'normalized scores')
