@@ -38,6 +38,8 @@ class Player:
         self.all_moves = []
         self.avg_moves = 0
         self.weighed_scores = []
+        self.weighed_moves = []
+        self.final_move_scores = []
         self.win_rate = 0
         self.ai = ai.GomokuAI()
         self.final_action = None
@@ -74,6 +76,7 @@ class Player:
     def reset_score(self):
         self.score = 0
         self.moves = 0
+        self.weighed_moves = []
 
     def reset_all_stats(self):
         self.moves = 0
@@ -82,7 +85,10 @@ class Player:
         self.score = 0
         self.sum_score = 0
         self.avg_score = 0
+        self.weighed_scores = []
         self.all_moves = []
+        self.weighed_moves = []
+        self.final_move_scores = []
         self.avg_moves = 0
 
 
@@ -267,7 +273,12 @@ def run(instance):
                 instance.board[action[0]][action[1]] = current_player
                 short_score = mm_ai.calculate_short_score(action, instance.board)
                 max_score = mm_ai.calculate_short_max_score(instance.board)
-                score = short_score / (max_score/2) - 1
+                if max_score <= 0:
+                    # prevent division with negative values or zero
+                    score = 0
+                else:
+                    score = short_score / (max_score/2) - 1
+                players[current_player - 1].weighed_moves.append(score)
                 game_over = check_win(action[0], action[1], current_player, instance)
                 # Train the AI
                 mm_ai.remember(old_state, action, score, instance.board, game_over)
@@ -299,13 +310,15 @@ def run(instance):
             p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
             p.ai.train_long_memory()
             p.ai.model.save_model()
+            p.final_move_scores.append(sum(p.weighed_moves)/len(p.weighed_moves))
         p.reset_score()
         if instance.last_round:
             if p.TYPE == "MM-AI":
-                data[f"{p.TYPE} {p.ID}"] = p.weighed_scores
+                data[f"{p.TYPE} {p.ID}: final scores"] = p.weighed_scores
+                data[f"{p.TYPE} {p.ID}: average moves"] = p.final_move_scores
             p.reset_all_stats()
     if len(data) > 0:
-        stats.plot_graph(data, 'weighed scores')
+        stats.plot_graph(data, 'normalized scores')
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
 

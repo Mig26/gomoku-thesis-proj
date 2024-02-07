@@ -8,8 +8,10 @@ import random
 from collections import deque
 from model import Linear_QNet, QTrainer
 
-MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
+MAX_MEMORY = 1_000_000
+BATCH_SIZE = 10000
+MIN_EPSILON = 0.01
+EPSILON_DECAY_RATE = 0.999
 
 
 class ConvNet(nn.Module):
@@ -53,12 +55,12 @@ class GomokuAI:
     def __init__(self, _board_size = 15):
         self.n_games = 0
         self.game = None
-        self.learning_rate = 0.0005
+        self.learning_rate = 0.00025
         # self.len_action = len(self.Action().to_array())
         # self.len_state = len(self.State().to_array())
         self.board_size = _board_size
-        self.gamma = 0.9
-        self.epsilon = 0.5
+        self.gamma = 0.2
+        self.epsilon = 0.25
         self.memory = deque(maxlen=MAX_MEMORY)
         #self.model = Linear_QNet(self.board_size**2, (self.board_size**2)*2, 1)
         self.model = self.build_model(self.board_size**2)
@@ -94,8 +96,9 @@ class GomokuAI:
         next_states = torch.tensor(next_states, dtype=torch.float)
 
         # Predict Q-values for current states
-        q_pred = self.model(state)#.gather(1, actions.unsqueeze(-1)).squeeze(-1)
-        # q_pred = states.gather(1, actions.unsqueeze(-1)).squeeze(-1)
+        # q_pred = self.model(state)#.gather(1, actions.unsqueeze(-1)).squeeze(-1)
+        # q_pred = self.model(state.squeeze(0).squeeze(0).view(1, -1).unsqueeze(-1).unsqueeze(-1))
+        q_pred = self.model(state)
 
         # Predict Q-values for next states
         q_next = next_states.detach()
@@ -104,8 +107,9 @@ class GomokuAI:
 
         # Loss and backpropagation
         loss = self.criterion(q_pred, q_target.unsqueeze(1))
+        print(f"loss: {loss}")
         loss.requires_grad_(requires_grad=True)
-        self.optimizer.zero_grad()
+        self.optimizer.zero_grad(set_to_none=False)
         loss.backward()
         self.optimizer.step()
 
