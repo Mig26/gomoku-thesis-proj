@@ -314,6 +314,7 @@ def run(instance):
     # For any MM-AI, train for long memory and save model
     data = {}
     loss_data = {}
+    move_loss_data = {}
     for p in players:
         if p.TYPE == "MM-AI":
             p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
@@ -325,13 +326,14 @@ def run(instance):
             p.final_move_scores.append(sum(p.weighed_moves)/len(p.weighed_moves))
             stats.log_message(f"{p.TYPE} {p.ID}: score loss: {float(p.ai.loss)}")
             stats.log_message(f"{p.TYPE} {p.ID}: move loss: {sum(p.move_loss)/len(p.move_loss)}")
+            print(p.move_loss)
         p.reset_score()
         if instance.last_round:
             if p.TYPE == "MM-AI":
                 data[f"{p.TYPE} {p.ID}: final scores"] = p.weighed_scores
-                data[f"{p.TYPE} {p.ID}: average moves"] = p.final_move_scores
+                data[f"{p.TYPE} {p.ID}: move scores"] = p.final_move_scores
                 loss_data[f"{p.TYPE} {p.ID}: score loss"] = [float(val) for val in p.score_loss]
-                loss_data[f"{p.TYPE} {p.ID}: move loss"] = p.final_move_loss
+                move_loss_data[f"{p.TYPE} {p.ID}: move loss"] = p.final_move_loss
                 stats.log_message(f"{p.TYPE} {p.ID}: average score loss: {sum([float(val) for val in p.score_loss]) / len([float(val) for val in p.score_loss])}")
                 stats.log_message(f"{p.TYPE} {p.ID}: average move loss: {sum(p.final_move_loss) / len(p.final_move_loss)}")
             p.reset_all_stats()
@@ -339,6 +341,8 @@ def run(instance):
         stats.plot_graph(data, 'normalized scores')
     if len(loss_data) > 0:
         stats.plot_graph(loss_data, 'loss data')
+    if len(move_loss_data) > 0:
+        stats.plot_graph(move_loss_data, 'loss data')
     time.sleep(instance.SLEEP_BEFORE_END)
     reset_game(instance)
 
