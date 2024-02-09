@@ -5,6 +5,7 @@ import testai
 import ai
 import random
 import stats
+import numpy as np
 
 
 class GomokuGame:
@@ -274,9 +275,10 @@ def run(instance):
                     time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
                 mm_ai = players[current_player-1].ai
                 mm_ai.set_game(instance.board)
-                mm_ai.get_state(instance.board)
+                # mm_ai.get_state(instance.board)
                 old_state = instance.board
                 action = mm_ai.get_action(instance.board)
+                action_id = ((action[0]) % (instance.GRID_SIZE - 1) * instance.GRID_SIZE) + (action[1] + 1)
                 instance.board[action[0]][action[1]] = current_player
                 short_score = mm_ai.calculate_short_score(action, instance.board)
                 max_score = mm_ai.calculate_short_max_score(instance.board)
@@ -288,8 +290,8 @@ def run(instance):
                 players[current_player - 1].weighed_moves.append(score)
                 game_over = check_win(action[0], action[1], current_player, instance)
                 # Train the AI
-                mm_ai.remember(old_state, action, score, instance.board, game_over)
-                mm_ai.train_short_memory(old_state, action, score, instance.board, game_over)
+                mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
+                mm_ai.train_short_memory(np.array(old_state), action_id, score, np.array(instance.board), game_over)
                 players[current_player - 1].move_loss.append(mm_ai.loss)
                 players[current_player-1].final_action = action
                 players[current_player - 1].moves += 1
@@ -326,7 +328,6 @@ def run(instance):
             p.final_move_scores.append(sum(p.weighed_moves)/len(p.weighed_moves))
             stats.log_message(f"{p.TYPE} {p.ID}: score loss: {float(p.ai.loss)}")
             stats.log_message(f"{p.TYPE} {p.ID}: move loss: {sum(p.move_loss)/len(p.move_loss)}")
-            print(p.move_loss)
         p.reset_score()
         if instance.last_round:
             if p.TYPE == "MM-AI":

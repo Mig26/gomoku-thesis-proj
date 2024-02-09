@@ -3,6 +3,7 @@ import os.path
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
 import numpy as np
 import random
 from collections import deque
@@ -18,20 +19,20 @@ class ConvNet(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(ConvNet, self).__init__()
         # Define your CNN architecture here
-        self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=hidden_dim, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=hidden_dim, out_channels=output_dim, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=input_dim*input_dim, kernel_size=5, padding=2)
+        self.conv2 = nn.Conv2d(in_channels=input_dim*input_dim, out_channels=output_dim, kernel_size=5, padding=2)
         #self.fc1 = nn.Linear(output_dim, 1)
-        self.fc1 = nn.Conv2d(in_channels=output_dim, out_channels=2, kernel_size=3, padding=1)
+        # self.fc1 = nn.Conv2d(in_channels=output_dim, out_channels=2, kernel_size=3, padding=1)
         # self.fc2 = nn.Linear(256, 1)
-        # self.fc1 = nn.Linear(board_size * board_size * 128, 1024)
+        self.fc1 = nn.Linear(output_dim, 1)
         # self.fc2 = nn.Linear(1024, 1)
 
     def forward(self, x):
-        x = torch.relu(self.conv1(x))
-        x = torch.relu(self.conv2(x))
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
         # x = x.view(x.size(0), -1) # Flatten the tensor
         # x = torch.relu(self.fc1(x))
-        x = self.fc1(x)
+        x = self.fc1(x.mean(dim=[2,3]).squeeze(0))
         return x
 
     def load_model(self, file_name='model.pth'):
@@ -61,16 +62,15 @@ class GomokuAI:
         # self.len_state = len(self.State().to_array())
         self.board_size = _board_size
         self.gamma = 0.2
-        self.epsilon = 0.15
+        self.epsilon = 0.5
         self.memory = deque(maxlen=MAX_MEMORY)
         #self.model = Linear_QNet(self.board_size**2, (self.board_size**2)*2, 1)
-        self.model = self.build_model(self.board_size**2)
+        self.model = self.build_model(self.board_size)
         self.model.load_model()
         self.model.eval()
         self.trainer = QTrainer(self.model, lr=self.learning_rate, gamma=self.gamma)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
-        # self.criterion = nn.ReLU()
         self.loss = 0
 
     def set_game(self, _game):
@@ -97,23 +97,24 @@ class GomokuAI:
         states, actions, rewards, next_states, dones = zip(*mini_batch)
         state = torch.tensor(mini_batch[0][0], dtype=torch.float).view(1, -1).unsqueeze(-1).unsqueeze(-1)
         # Convert to tensors
-        states = torch.tensor(states, dtype=torch.float)#.mean(dim=1, keepdim=True)
+        states = torch.tensor(states, dtype=torch.float).unsqueeze(0)#.unsqueeze(0)
+        states = torch.transpose(states, 0, 1)
         actions = torch.tensor(actions, dtype=torch.long)
         rewards = torch.tensor(rewards, dtype=torch.float)
         next_states = torch.tensor(next_states, dtype=torch.float)
 
         # Predict Q-values for current states
-        q_pred = self.model(state)#.gather(1, actions.unsqueeze(-1).unsqueeze(0)).squeeze(-1)
+        q_pred = self.model(states)#.gather(1, actions.unsqueeze(-1).unsqueeze(0)).squeeze(-1)
         # q_pred = self.model(state.squeeze(0).squeeze(0).view(1, -1).unsqueeze(-1).unsqueeze(-1))
         # q_pred = self.model(state)
 
         # Predict Q-values for next states
         q_next = next_states.detach()
-        q_next_max = torch.max(q_next, dim=1)[0].unbind(dim=1)[0]
-        q_target = rewards + (self.gamma * q_next_max * (~torch.tensor(dones)))
-
+        q_next_max = torch.max(q_next, dim=1)[0].unbind(dim=1)
+        # q_target = rewards + (self.gamma * q_next_max * (~torch.tensor(dones)))
+        q_target = rewards + (self.gamma * (~torch.tensor(dones)))
         # Loss and backpropagation
-        loss = self.criterion(q_target, q_pred)
+        loss = self.criterion(q_target, q_target)
         # loss = self.criterion(q_pred, q_target.unsqueeze(1))
         loss.requires_grad_(requires_grad=True)
         self.optimizer.zero_grad(set_to_none=False)
@@ -123,27 +124,29 @@ class GomokuAI:
         self.adjust_epsilon()
 
     def train_short_memory(self, state, action, reward, next_state, done):
-        state = torch.tensor(state, dtype=torch.float)# .unsqueeze(0).unsqueeze(0)
+        state = torch.tensor(state, dtype=torch.float).unsqueeze(0).unsqueeze(0)
         state_flattened = state.view(-1)    # flattened state
-        next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0).unsqueeze(0)
+        next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(-1).unsqueeze(0)
         action = torch.tensor([action], dtype=torch.long)
         reward = torch.tensor([reward], dtype=torch.float)
+        # self.model.eval()
         #action_index = action[0, 0] * state.size(2) + action[0, 1]  # row * number_of_columns + column
         #action_index = action_index.long()
-        # q_pred = self.model(state)#.view(1, -1).unsqueeze(-1).unsqueeze(-1))#.squeeze(0).squeeze(0).unsqueeze(-1).unsqueeze(-1)).squeeze(0).squeeze(0)#.gather(0, action).view(1, -1).unsqueeze(-1).unsqueeze(-1)  #
-        q_pred = self.model(state.squeeze(0).squeeze(0).view(1, -1).unsqueeze(-1).unsqueeze(-1))#.gather(-2, action.unsqueeze(0).unsqueeze(-1))
+        q_pred = self.model(state_flattened.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))#.view(1, -1).unsqueeze(-1).unsqueeze(-1))#.squeeze(0).squeeze(0).unsqueeze(-1).unsqueeze(-1)).squeeze(0).squeeze(0)#.gather(0, action).view(1, -1).unsqueeze(-1).unsqueeze(-1)  #
+        # q_pred = self.model(state.squeeze(0).squeeze(0).view(1, -1).unsqueeze(-1).unsqueeze(-1))#.gather(-2, action.unsqueeze(0).unsqueeze(-1))
         q_next = next_state
-        q_target = reward
-        if not done:
-            q_target = reward + (self.gamma * torch.max(q_next))
-
+        q_target = q_pred.clone()
+        q_new = reward + self.gamma * torch.max(self.model(next_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)))
+        # if not done:
+        #     q_target = reward + (self.gamma * torch.max(q_next))
+        q_target[torch.argmax(action).item()] = q_new
         loss = self.criterion(q_target, q_pred)
         # loss = self.criterion(q_pred, q_target.unsqueeze(1))
         loss.requires_grad_(requires_grad=True)
-        self.optimizer.zero_grad()
         loss.backward()
         self.loss = loss.detach().numpy()    # for logging purposes
         self.optimizer.step()
+        # self.optimizer.zero_grad()
 
     def get_valid_moves(self, board):
         valid_moves = []
@@ -170,24 +173,34 @@ class GomokuAI:
             # Exploitation: Best Move According to the Model
             print("Exploitation")
             # current_state = self.get_state(state)
-            # current_state = torch.tensor(self.get_state(state), dtype=torch.float)
-            current_state = self.get_state(state).clone().detach()
-            # prediction = self.model(current_state)
-            prediction = current_state
-            action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
+            current_state = torch.tensor(self.get_state(state), dtype=torch.float).squeeze(0)
+            print(current_state)
+            # current_state = self.get_state(state).clone().detach()
+            self.model.eval()
+            with torch.no_grad():
+                # prediction = self.model(current_state)
+                prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
+                print(prediction.flatten())
+            num_moves_to_select = max(int(len(valid_moves) * .025), 1)
+            if num_moves_to_select > 0:
+                top_moves_indices = torch.topk(prediction.flatten(), k=num_moves_to_select).indices
+                action = self.id_to_move(top_moves_indices[torch.randint(len(top_moves_indices), (1,))].item(), valid_moves)
+            else:
+                action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
+            print(f"best prediction: {max(prediction)}")
             if action is None:
                 # if no action, switch to exploration
                 action = self.id_to_move(self.get_random_action(), valid_moves)
-
         # Decay Epsilon Over Time
-        if self.epsilon > 0.01:  # Setting a lower bound on epsilon
-            self.epsilon *= 0.99  # Adjust decay rate as needed
+        self.adjust_epsilon()
         return action
 
     def get_random_action(self):
         while True:
-            p = random.randint(0, len(self.game)-1)
-            if self.game[p][random.randint(0, len(self.game[p])-1)] == 0:
+            row = random.randint(0, len(self.game)-1)
+            col = random.randint(0, len(self.game)-1)
+            if self.game[row][col] == 0:
+                p = (row % (len(self.game) - 1) * len(self.game)) + (col + 1)
                 break
         return p
 
