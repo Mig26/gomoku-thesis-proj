@@ -223,6 +223,19 @@ def check_board_full(instance):
                 return False
     return True
 
+def convert_to_one_hot(board, player_id):
+    board = np.array(board)
+    height, width = board.shape
+    one_hot_board = np.zeros((3, height, width), dtype=np.float32)
+    one_hot_board[0] = (board == 0).astype(np.float32)
+    if player_id == 1:
+        one_hot_board[1] = (board == 1).astype(np.float32)  # AI's pieces as Player 1
+        one_hot_board[2] = (board == 2).astype(np.float32)  # Enemy's pieces as Player 2
+    else:
+        one_hot_board[1] = (board == 2).astype(np.float32)  # AI's pieces as Player 2
+        one_hot_board[2] = (board == 1).astype(np.float32)
+    return one_hot_board
+
 
 def run(instance):
     # Main game loop
@@ -273,25 +286,30 @@ def run(instance):
             elif players[current_player-1].TYPE == "MM-AI":
                 if instance.ai_delay:
                     time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
+                one_hot_board = convert_to_one_hot(instance.board, players[current_player-1].ID)
                 mm_ai = players[current_player-1].ai
-                mm_ai.set_game(instance.board)
+                mm_ai.set_game(one_hot_board)
                 # mm_ai.get_state(instance.board)
                 old_state = instance.board
-                action = mm_ai.get_action(instance.board)
+                max_score, scores = mm_ai.calculate_short_max_score(instance.board)
+                action = mm_ai.get_action(instance.board, one_hot_board, scores)
+                print(f"action: {action}")
                 action_id = ((action[0]) % (instance.GRID_SIZE - 1) * instance.GRID_SIZE) + (action[1] + 1)
-                instance.board[action[0]][action[1]] = current_player
                 short_score = mm_ai.calculate_short_score(action, instance.board)
-                max_score = mm_ai.calculate_short_max_score(instance.board)
                 if max_score <= 0:
                     # prevent division with negative values or zero
                     score = 0
                 else:
                     score = short_score / (max_score/2) - 1
+                print(f"move score: {score}")
                 players[current_player - 1].weighed_moves.append(score)
+                instance.board[action[0]][action[1]] = current_player
                 game_over = check_win(action[0], action[1], current_player, instance)
                 # Train the AI
-                mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
-                mm_ai.train_short_memory(np.array(old_state), action_id, score, np.array(instance.board), game_over)
+                mm_ai.remember(one_hot_board, action, score, convert_to_one_hot(instance.board, players[current_player-1].ID), game_over)
+                # mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
+                mm_ai.train_short_memory(one_hot_board, action_id, score, scores, convert_to_one_hot(instance.board, players[current_player-1].ID), game_over)
+                # mm_ai.train_short_memory(np.array(old_state), action_id, score, np.array(instance.board), game_over)
                 players[current_player - 1].move_loss.append(mm_ai.loss)
                 players[current_player-1].final_action = action
                 players[current_player - 1].moves += 1
@@ -319,8 +337,8 @@ def run(instance):
     move_loss_data = {}
     for p in players:
         if p.TYPE == "MM-AI":
-            p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
-            p.ai.train_long_memory()
+            # p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
+            # p.ai.train_long_memory()
             p.score_loss.append(p.ai.loss)
             move_loss = [float(val) for val in p.move_loss]
             p.final_move_loss.append(sum(move_loss)/len(move_loss))

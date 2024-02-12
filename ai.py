@@ -19,7 +19,7 @@ class ConvNet(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(ConvNet, self).__init__()
         # Define your CNN architecture here
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=input_dim*input_dim, kernel_size=5, padding=2)
+        self.conv1 = nn.Conv2d(in_channels=4, out_channels=input_dim*input_dim, kernel_size=5, padding=2)
         self.conv2 = nn.Conv2d(in_channels=input_dim*input_dim, out_channels=output_dim, kernel_size=5, padding=2)
         #self.fc1 = nn.Linear(output_dim, 1)
         # self.fc1 = nn.Conv2d(in_channels=output_dim, out_channels=2, kernel_size=3, padding=1)
@@ -32,7 +32,9 @@ class ConvNet(nn.Module):
         x = F.relu(self.conv2(x))
         # x = x.view(x.size(0), -1) # Flatten the tensor
         # x = torch.relu(self.fc1(x))
-        x = self.fc1(x.mean(dim=[2,3]).squeeze(0))
+        x = x.squeeze(0)
+        x = x.mean(dim=[1, 2], keepdim=True).squeeze(-1).squeeze(-1)
+        x = self.fc1(x)
         return x
 
     def load_model(self, file_name='model.pth'):
@@ -70,6 +72,7 @@ class GomokuAI:
         self.model.eval()
         self.trainer = QTrainer(self.model, lr=self.learning_rate, gamma=self.gamma)
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.learning_rate)
+        # self.criterion = nn.MSELoss()
         self.criterion = nn.MSELoss()
         self.loss = 0
 
@@ -123,20 +126,26 @@ class GomokuAI:
         self.optimizer.step()
         self.adjust_epsilon()
 
-    def train_short_memory(self, state, action, reward, next_state, done):
-        state = torch.tensor(state, dtype=torch.float).unsqueeze(0).unsqueeze(0)
+    def train_short_memory(self, state, action, reward, scores, next_state, done):
+        state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
+        np_scores = np.array(scores).reshape(15, 15)
+        scores_tensor = torch.tensor(np_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
+        state = torch.cat((state, scores_tensor), dim=1)
         state_flattened = state.view(-1)    # flattened state
-        next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(-1).unsqueeze(0)
+        next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
+        next_state = torch.cat((next_state, scores_tensor), dim=1)
         action = torch.tensor([action], dtype=torch.long)
         reward = torch.tensor([reward], dtype=torch.float)
         # self.model.eval()
         #action_index = action[0, 0] * state.size(2) + action[0, 1]  # row * number_of_columns + column
         #action_index = action_index.long()
-        q_pred = self.model(state_flattened.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))#.view(1, -1).unsqueeze(-1).unsqueeze(-1))#.squeeze(0).squeeze(0).unsqueeze(-1).unsqueeze(-1)).squeeze(0).squeeze(0)#.gather(0, action).view(1, -1).unsqueeze(-1).unsqueeze(-1)  #
+        # q_pred = self.model(state_flattened.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))#.view(1, -1).unsqueeze(-1).unsqueeze(-1))#.squeeze(0).squeeze(0).unsqueeze(-1).unsqueeze(-1)).squeeze(0).squeeze(0)#.gather(0, action).view(1, -1).unsqueeze(-1).unsqueeze(-1)  #
         # q_pred = self.model(state.squeeze(0).squeeze(0).view(1, -1).unsqueeze(-1).unsqueeze(-1))#.gather(-2, action.unsqueeze(0).unsqueeze(-1))
+        q_pred = self.model(state)
         q_next = next_state
         q_target = q_pred.clone()
-        q_new = reward + self.gamma * torch.max(self.model(next_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)))
+        q_new = reward + self.gamma * torch.max(self.model(next_state.squeeze(-1)))
+        # q_new = reward + self.gamma * torch.max(self.model(next_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)))
         # if not done:
         #     q_target = reward + (self.gamma * torch.max(q_next))
         q_target[torch.argmax(action).item()] = q_new
@@ -162,47 +171,63 @@ class GomokuAI:
         else:
             return None
 
-    def get_action(self, state):
+    def get_action(self, state, one_hot_board, scores):
         valid_moves = self.get_valid_moves(state)
         # Exploration vs Exploitation: Epsilon-Greedy Strategy
         if random.random() < self.epsilon:
             # Exploration: Random Move
             print("Exploration")
-            action = self.id_to_move(self.get_random_action(), valid_moves)
+            action = self.id_to_move(self.get_random_action(state), valid_moves)
         else:
             # Exploitation: Best Move According to the Model
             print("Exploitation")
+            np_scores = np.array(scores).reshape(15, 15)
+            scores_tensor = torch.tensor(np_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
+            state = torch.cat((self.get_state(one_hot_board), scores_tensor), dim=1)
             # current_state = self.get_state(state)
-            current_state = torch.tensor(self.get_state(state), dtype=torch.float).squeeze(0)
-            print(current_state)
+            current_state = torch.tensor(self.get_state(one_hot_board), dtype=torch.float)
+            current_state = torch.cat((current_state, scores_tensor), dim=1)
             # current_state = self.get_state(state).clone().detach()
             self.model.eval()
             with torch.no_grad():
-                # prediction = self.model(current_state)
-                prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
-                print(prediction.flatten())
-            num_moves_to_select = max(int(len(valid_moves) * .025), 1)
-            if num_moves_to_select > 0:
-                top_moves_indices = torch.topk(prediction.flatten(), k=num_moves_to_select).indices
-                action = self.id_to_move(top_moves_indices[torch.randint(len(top_moves_indices), (1,))].item(), valid_moves)
-            else:
-                action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
+                prediction = self.model(current_state)
+                # prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
+            # num_moves_to_select = max(int(len(valid_moves) * .025), 1)
+            # if num_moves_to_select > 0:
+            #     top_moves_indices = torch.topk(prediction.flatten(), k=num_moves_to_select).indices
+            #     action = self.id_to_move(top_moves_indices[torch.randint(len(top_moves_indices), (1,))].item(), valid_moves)
+            # else:
+            action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
+            print(f"prediction: {prediction}")
             print(f"best prediction: {max(prediction)}")
-            if action is None:
-                # if no action, switch to exploration
-                action = self.id_to_move(self.get_random_action(), valid_moves)
+        while action is None:
+            # if no action, switch to exploration
+            action = self.id_to_move(self.get_random_action(state), valid_moves)
         # Decay Epsilon Over Time
         self.adjust_epsilon()
         return action
 
-    def get_random_action(self):
+    def get_random_action(self, board):
         while True:
-            row = random.randint(0, len(self.game)-1)
-            col = random.randint(0, len(self.game)-1)
-            if self.game[row][col] == 0:
-                p = (row % (len(self.game) - 1) * len(self.game)) + (col + 1)
+            row = random.randint(0, len(board)-1)
+            col = random.randint(0, len(board)-1)
+            if board[row][col] == 0:
+                p = (row % (len(board) - 1) * len(board)) + (col + 1)
                 break
         return p
+
+    def convert_to_one_hot(self, board, player_id):
+        board = np.array(board)
+        height, width = board.shape
+        one_hot_board = np.zeros((3, height, width), dtype=np.float32)
+        one_hot_board[0] = (board == 0).astype(np.float32)
+        if player_id == 1:
+            one_hot_board[1] = (board == 1).astype(np.float32)  # AI's pieces as Player 1
+            one_hot_board[2] = (board == 2).astype(np.float32)  # Enemy's pieces as Player 2
+        else:
+            one_hot_board[1] = (board == 2).astype(np.float32)  # AI's pieces as Player 2
+            one_hot_board[2] = (board == 1).astype(np.float32)
+        return one_hot_board
 
     def calculate_short_score(self, move: tuple, board: tuple):
         directions = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, 1), (-1, -1)]
@@ -245,8 +270,20 @@ class GomokuAI:
         moves = []
         for row in range(board_size):
             for col in range(board_size):
+                score = self.calculate_short_score((row, col), board)
                 moves.append(self.calculate_short_score((row, col), board))
-        return max(moves)
+                if score > 0:
+                    print(f"score: {score}, location: {row}, {col}")
+        moves_normalized = []
+        for i in range(len(moves)):
+            if max(moves) > 0:
+                new_normalized_move = (moves[i] / (max(moves)/2) - 1)
+            else:
+                new_normalized_move = 0
+            if new_normalized_move < 0:
+                new_normalized_move = 0
+            moves_normalized.append(new_normalized_move)
+        return max(moves), moves_normalized
 
     def train(self):    # Siirrä tämä koodi gomoku.py
         plot_score = []
