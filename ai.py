@@ -64,7 +64,7 @@ class GomokuAI:
         # self.len_state = len(self.State().to_array())
         self.board_size = _board_size
         self.gamma = 0.2
-        self.epsilon = 0.5
+        self.epsilon = 0.25
         self.memory = deque(maxlen=MAX_MEMORY)
         #self.model = Linear_QNet(self.board_size**2, (self.board_size**2)*2, 1)
         self.model = self.build_model(self.board_size)
@@ -183,14 +183,15 @@ class GomokuAI:
             print("Exploitation")
             np_scores = np.array(scores).reshape(15, 15)
             scores_tensor = torch.tensor(np_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
-            state = torch.cat((self.get_state(one_hot_board), scores_tensor), dim=1)
-            # current_state = self.get_state(state)
+            state_concat = torch.cat((self.get_state(one_hot_board), scores_tensor), dim=1)
+            # current_state = self.get_state(state_concat)
             current_state = torch.tensor(self.get_state(one_hot_board), dtype=torch.float)
             current_state = torch.cat((current_state, scores_tensor), dim=1)
-            # current_state = self.get_state(state).clone().detach()
+            # current_state = self.get_state(state_concat).clone().detach()
             self.model.eval()
             with torch.no_grad():
-                prediction = self.model(current_state)
+                # prediction = self.model(current_state)
+                prediction = scores_tensor
                 # prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
             # num_moves_to_select = max(int(len(valid_moves) * .025), 1)
             # if num_moves_to_select > 0:
@@ -198,8 +199,8 @@ class GomokuAI:
             #     action = self.id_to_move(top_moves_indices[torch.randint(len(top_moves_indices), (1,))].item(), valid_moves)
             # else:
             action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
-            print(f"prediction: {prediction}")
-            print(f"best prediction: {max(prediction)}")
+            print(f"prediction: {torch.argmax(prediction).item()}")
+            # print(f"best prediction: {max(prediction.detach())}")
         while action is None:
             # if no action, switch to exploration
             action = self.id_to_move(self.get_random_action(state), valid_moves)
@@ -229,51 +230,86 @@ class GomokuAI:
             one_hot_board[2] = (board == 1).astype(np.float32)
         return one_hot_board
 
-    def calculate_short_score(self, move: tuple, board: tuple):
+    def calculate_short_score(self, move: tuple, board: tuple, max_score_calculation=False):
         directions = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, 1), (-1, -1)]
         score = 0
+        first_spot = None
         try:
             for i in range(len(directions)):
                 current_score = 0
-                for j in range(3):
+                for j in range(5):
+                    current_spot = board[move[0] + ((j + 1) * directions[i][0])][move[1] + ((j + 1) * directions[i][1])]
                     if j == 0:
-                        first_spot = board[move[0]+((j+1)*directions[i][0])][move[1]+((j+1)*directions[i][1])]
-                    current_spot = board[move[0]+((j+1)*directions[i][0])][move[1]+((j+1)*directions[i][1])]
-                    if current_spot == 1 or current_spot == 2:  # run only if current spot is not empty
-                        if j > 0:
-                            previous_spot = board[move[0] + ((j - 1) * directions[i][0])][
-                                move[1] + ((j - 1) * directions[i][1])]
-                            if current_spot == previous_spot:
-                                current_score += j+1    # increase score if the current and previous spots are of the same color
-                            elif current_spot != previous_spot and current_spot != 0:   # a situation where a line is blocked
-                                for k in range(3):  # check opposing direction for continuation
-                                    opposing_spot = board[move[0]-((j+1)*directions[i][0])][move[1]-((j+1)*directions[i][1])]
-                                    if opposing_spot != 0 and opposing_spot == first_spot:
-                                        current_score += k+1    # increase score if opposing direction has the same color as the first spot of the current direction
-                                    elif opposing_spot != 0 and opposing_spot != first_spot:
-                                        if (j+1)+(k+1) <= 4: # if the lines are too short and blocked from both sides, don't reward
-                                            current_score = 0
-                                        break
-                                    else:
-                                        break
-                                break
-                        elif current_spot != 0: # this condition only applies if j == 0
-                            current_score += j+1
+                        first_spot = current_spot
+                    if not max_score_calculation:
+                        if current_spot == 1 or current_spot == 2:  # run only if current spot is not empty
+                            if j > 0:
+                                if first_spot != None:
+                                    current_score += self.calculate_score(current_score, move, board, current_spot, j, directions[i], first_spot)
+                                else:
+                                    current_score += self.calculate_score(current_score, move, board, current_spot, j, directions[i])
+                                # previous_spot = board[move[0] + ((j - 1) * directions[i][0])][
+                                #     move[1] + ((j - 1) * directions[i][1])]
+                                # if current_spot == previous_spot:
+                                #     current_score *= j+1    # increase score if the current and previous spots are of the same color
+                                # elif current_spot != previous_spot and current_spot != 0:   # a situation where a line is blocked
+                                #     for k in range(3):  # check opposing direction for continuation
+                                #         opposing_spot = board[move[0]-((j+1)*directions[i][0])][move[1]-((j+1)*directions[i][1])]
+                                #         if opposing_spot != 0 and opposing_spot == first_spot:
+                                #             current_score += k+1    # increase score if opposing direction has the same color as the first spot of the current direction
+                                #         elif opposing_spot != 0 and opposing_spot != first_spot:
+                                #             if (j+1)+(k+1) <= 4: # if the lines are too short and blocked from both sides, don't reward
+                                #                 current_score = 0
+                                #             break
+                                #         else:
+                                #             break
+                                #     break
+                            elif current_spot != 0: # this condition only applies if j == 0
+                                current_score += j+1
+                    elif max_score_calculation:
+                        if current_spot == 0:
+                            current_score = -1
+                            break
+                        else:
+                            if first_spot != None:
+                                current_score += self.calculate_score(current_score, move, board, current_spot, j, directions[i], first_spot)
+                            else:
+                                current_score += self.calculate_score(current_score, move, board, current_spot, j, directions[i])
                     else:
-                        break   # exit immediately if hits an empty spot
+                        break   # exit immediately if hits an empty spot and not max score count
                 score += current_score
+                if not max_score_calculation:
+                    print(f"current score: {score}")
         except IndexError:
             pass
+        if not max_score_calculation:
+            print(f"final score: {score}")
+        return score
+
+    def calculate_score(self, current_score, move, board, current_spot, j, direction: tuple, first_spot=-1):
+        score = 0
+        previous_spot = board[move[0] + ((j - 1) * direction[0])][
+            move[1] + ((j - 1) * direction[1])]
+        if current_spot == previous_spot:
+            score = current_score * (j + 1)  # increase score if the current and previous spots are of the same color
+        elif current_spot != previous_spot and current_spot != 0:  # a situation where a line is blocked
+            for k in range(3):  # check opposing direction for continuation
+                opposing_spot = board[move[0] - ((j + 1) * direction[0])][move[1] - ((j + 1) * direction[1])]
+                if opposing_spot != 0 and opposing_spot == first_spot:
+                    score = current_score * (k + 1)  # increase score if opposing direction has the same color as the first spot of the current direction
+                elif opposing_spot != 0 and opposing_spot != first_spot:
+                    if (j + 1) + (k + 1) <= 4:  # if the lines are too short and blocked from both sides, don't reward
+                        score = 0
         return score
 
     def calculate_short_max_score(self, board: tuple, board_size = 15):
         moves = []
         for row in range(board_size):
             for col in range(board_size):
-                score = self.calculate_short_score((row, col), board)
-                moves.append(self.calculate_short_score((row, col), board))
-                if score > 0:
-                    print(f"score: {score}, location: {row}, {col}")
+                # score = self.calculate_short_score((row, col), board)
+                moves.append(self.calculate_short_score((row, col), board, True))
+                # if score > 0:
+                #     print(f"score: {score}, location: {row}, {col}")
         moves_normalized = []
         for i in range(len(moves)):
             if max(moves) > 0:
@@ -283,6 +319,7 @@ class GomokuAI:
             if new_normalized_move < 0:
                 new_normalized_move = 0
             moves_normalized.append(new_normalized_move)
+        print(f"best score: {max(moves)}")
         return max(moves), moves_normalized
 
     def train(self):    # Siirrä tämä koodi gomoku.py
@@ -316,6 +353,3 @@ class GomokuAI:
 
             # Log results, monitor performance, etc.
             # ...
-
-if __name__ == '__main__':
-    train()
