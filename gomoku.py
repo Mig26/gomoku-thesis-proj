@@ -223,6 +223,7 @@ def check_board_full(instance):
                 return False
     return True
 
+
 def convert_to_one_hot(board, player_id):
     board = np.array(board)
     height, width = board.shape
@@ -291,11 +292,15 @@ def run(instance):
                 mm_ai.set_game(one_hot_board)
                 # mm_ai.get_state(instance.board)
                 old_state = instance.board
-                max_score, scores = mm_ai.calculate_short_max_score(instance.board)
+                max_score, scores, scores_normalized = mm_ai.calculate_short_max_score(instance.board)
                 action = mm_ai.get_action(instance.board, one_hot_board, scores)
                 print(f"action: {action}")
                 action_id = ((action[0]) % (instance.GRID_SIZE - 1) * instance.GRID_SIZE) + (action[1] + 1)
-                short_score = mm_ai.calculate_short_score(action, instance.board)
+                # short_score = mm_ai.calculate_short_score(action, instance.board)
+                np_scores = np.array(scores).reshape(15, 15)
+                short_score = np_scores[action[0]][action[1]]
+                print(np_scores)
+                print(f"short score: {np_scores[action[0]][action[1]]}, max score: {max_score}")
                 if max_score <= 0:
                     # prevent division with negative values or zero
                     score = 0
@@ -308,7 +313,7 @@ def run(instance):
                 # Train the AI
                 mm_ai.remember(one_hot_board, action, score, convert_to_one_hot(instance.board, players[current_player-1].ID), game_over)
                 # mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
-                mm_ai.train_short_memory(one_hot_board, action_id, score, scores, convert_to_one_hot(instance.board, players[current_player-1].ID), game_over)
+                mm_ai.train_short_memory(one_hot_board, action_id, score, scores_normalized, convert_to_one_hot(instance.board, players[current_player-1].ID), game_over)
                 # mm_ai.train_short_memory(np.array(old_state), action_id, score, np.array(instance.board), game_over)
                 players[current_player - 1].move_loss.append(mm_ai.loss)
                 players[current_player-1].final_action = action
