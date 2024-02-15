@@ -234,29 +234,6 @@ class GomokuAI:
         directions = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, 1), (-1, -1)]
         score = 0
         first_spot = None
-        adjacent_tiles = {}
-        tiles = {}
-        if board[move[0]][move[1]] == 0:
-            for i in range(len(directions)):
-                current_score = 0
-                forward = []
-                backward = []
-                for j in range(5):
-                    try:
-                        forward.append(board[move[0] + ((j + 1) * directions[i][0])][move[1] + ((j + 1) * directions[i][1])])
-                    except IndexError:
-                        break
-                for k in range(5):
-                    try:
-                        backward.append(board[move[0] + ((k - 1) * directions[i][0])][move[1] + ((k - 1) * directions[i][1])])
-                    except IndexError:
-                        break
-                tiles[directions[i]] = [forward, backward]
-            adjacent_tiles[move] = tiles
-        else:
-            print(board[move[0]][move[1]])
-            adjacent_tiles[move] = -1
-        print(f"{move}: adjacent tiles: \n{adjacent_tiles}")
         try:
             for i in range(len(directions)):
                 current_score = 0

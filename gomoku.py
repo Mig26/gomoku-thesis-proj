@@ -175,6 +175,61 @@ def reset_game(instance):
     current_player = 1
 
 
+def calculate_score(move: tuple, board: tuple, player_id: int, board_size=15):
+    directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
+    score = 0
+    first_spot = None
+    scored_board = np.zeros((board_size, board_size))
+    for row in range(len(board[0])):
+        for col in range(len(board[1])):
+            adjacent_tiles = {}
+            tiles = {}
+            if board[row][col] == 0:
+                for i in range(len(directions)):
+                    forward = []
+                    for j in range(5):
+                        try:
+                            forward.append(board[row + ((j + 1) * directions[i][0])][col + ((j + 1) * directions[i][1])])
+                        except IndexError:
+                            break
+                    tiles[directions[i]] = forward
+                adjacent_tiles[(row, col)] = tiles
+            else:
+                adjacent_tiles[(row, col)] = -1
+            total_score = 0
+            try:
+                for id, values in adjacent_tiles.items():
+                    directions = list(values.keys())
+                    for i in range(0, len(directions), 2):  # Iterate in pairs (opposing directions)
+                        dir1, dir2 = directions[i], directions[i + 1]
+                        line1, line2 = values[dir1], values[dir2]
+                        line1_str = str(line1)
+                        line2_str = str(line2)
+                        print(line1_str)
+                        score1 = 0
+                        score2 = 0
+                        multiplier = 1
+                        for j in range(len(line1)):
+                            if line1[j] > 0:
+                                if multiplier > 1 or j < 3:
+                                    score1 += multiplier**2
+                                    multiplier += 1
+                        multiplier = 1
+                        for k in range(len(line2)):
+                            if line2[k] > 0:
+                                if multiplier > 1 or k < 3:
+                                    score2 += multiplier**2
+                                    multiplier += 1
+                        if score1 > 0 and score2 > 0:
+                            total_score += (score1 * score2)
+                        else:
+                            total_score += (score1 + score2)
+            except AttributeError:
+                total_score = -1
+            scored_board[row][col] = total_score
+    print(scored_board)
+
+
 def check_win(row, col, player, instance):
     directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
     for drow, dcol in directions:
@@ -294,6 +349,7 @@ def run(instance):
                 old_state = instance.board
                 max_score, scores, scores_normalized = mm_ai.calculate_short_max_score(instance.board)
                 action = mm_ai.get_action(instance.board, one_hot_board, scores)
+                calculate_score(action, instance.board, players[current_player-1].ID)
                 print(f"action: {action}")
                 action_id = ((action[0]) % (instance.GRID_SIZE - 1) * instance.GRID_SIZE) + (action[1] + 1)
                 # short_score = mm_ai.calculate_short_score(action, instance.board)
