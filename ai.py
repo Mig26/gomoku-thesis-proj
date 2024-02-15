@@ -186,12 +186,12 @@ class GomokuAI:
             state_concat = torch.cat((self.get_state(one_hot_board), scores_tensor), dim=1)
             # current_state = self.get_state(state_concat)
             current_state = torch.tensor(self.get_state(one_hot_board), dtype=torch.float)
-            current_state = torch.cat((current_state, scores_tensor), dim=1)
+            current_state = torch.cat((scores_tensor, current_state), dim=1)
             # current_state = self.get_state(state_concat).clone().detach()
             self.model.eval()
             with torch.no_grad():
                 # prediction = self.model(current_state)
-                prediction = scores_tensor
+                prediction = current_state
                 # prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
             # num_moves_to_select = max(int(len(valid_moves) * .025), 1)
             # if num_moves_to_select > 0:
@@ -199,7 +199,7 @@ class GomokuAI:
             #     action = self.id_to_move(top_moves_indices[torch.randint(len(top_moves_indices), (1,))].item(), valid_moves)
             # else:
             action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
-            print(f"prediction: {torch.argmax(prediction).item()}")
+            print(f"prediction: {prediction}")
             # print(f"best prediction: {max(prediction.detach())}")
         while action is None:
             # if no action, switch to exploration
@@ -234,6 +234,29 @@ class GomokuAI:
         directions = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, 1), (-1, -1)]
         score = 0
         first_spot = None
+        adjacent_tiles = {}
+        tiles = {}
+        if board[move[0]][move[1]] == 0:
+            for i in range(len(directions)):
+                current_score = 0
+                forward = []
+                backward = []
+                for j in range(5):
+                    try:
+                        forward.append(board[move[0] + ((j + 1) * directions[i][0])][move[1] + ((j + 1) * directions[i][1])])
+                    except IndexError:
+                        break
+                for k in range(5):
+                    try:
+                        backward.append(board[move[0] + ((k - 1) * directions[i][0])][move[1] + ((k - 1) * directions[i][1])])
+                    except IndexError:
+                        break
+                tiles[directions[i]] = [forward, backward]
+            adjacent_tiles[move] = tiles
+        else:
+            print(board[move[0]][move[1]])
+            adjacent_tiles[move] = -1
+        print(f"{move}: adjacent tiles: \n{adjacent_tiles}")
         try:
             for i in range(len(directions)):
                 current_score = 0
@@ -329,7 +352,6 @@ class GomokuAI:
         print(f"best score: {max(moves)}")
         np_moves_norm = np.array(moves)
         reshaped = np.reshape(np_moves_norm, (board_size, board_size))
-        print(reshaped)
         return max(moves), moves, moves_normalized
 
     def train(self):    # Siirrä tämä koodi gomoku.py
