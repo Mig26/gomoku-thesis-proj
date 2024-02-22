@@ -6,6 +6,7 @@ import ai
 import random
 import stats
 import numpy as np
+import filereader
 
 
 class GomokuGame:
@@ -175,10 +176,9 @@ def reset_game(instance):
     current_player = 1
 
 
-def calculate_score(move: tuple, board: tuple, player_id: int, board_size=15):
+def calculate_score(board: tuple, board_size=15):
     directions = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]
-    score = 0
-    first_spot = None
+    score_board = filereader.load_scores("consts.json")
     scored_board = np.zeros((board_size, board_size))
     for row in range(len(board[0])):
         for col in range(len(board[1])):
@@ -203,23 +203,43 @@ def calculate_score(move: tuple, board: tuple, player_id: int, board_size=15):
                     for i in range(0, len(directions), 2):  # Iterate in pairs (opposing directions)
                         dir1, dir2 = directions[i], directions[i + 1]
                         line1, line2 = values[dir1], values[dir2]
-                        line1_str = str(line1)
-                        line2_str = str(line2)
-                        print(line1_str)
                         score1 = 0
                         score2 = 0
-                        multiplier = 1
+                        first = 0
+                        # Convert line so that the first non-zero cell is 1 and any opposing non-zero number is 2
                         for j in range(len(line1)):
-                            if line1[j] > 0:
-                                if multiplier > 1 or j < 3:
-                                    score1 += multiplier**2
-                                    multiplier += 1
-                        multiplier = 1
+                            try:
+                                if first == 0 and line1[j] > 0:
+                                    first = line1[j]
+                                if line1[j] > 0:
+                                    if line1[j] == first:
+                                        line1[j] = 1
+                                    else:
+                                        line1[j] = 2
+                            except IndexError:
+                                break
+                        first = 0
                         for k in range(len(line2)):
-                            if line2[k] > 0:
-                                if multiplier > 1 or k < 3:
-                                    score2 += multiplier**2
-                                    multiplier += 1
+                            try:
+                                if first == 0 and line2[k] > 0:
+                                    first = line2[k]
+                                if line2[k] > 0:
+                                    if line2[k] == first:
+                                        line2[k] = 1
+                                    else:
+                                        line2[k] = 2
+                            except IndexError:
+                                break
+                        lines = [str(line1), str(line2)]
+                        for category in score_board:
+                            for key in category.keys():
+                                for item in category[key]:
+                                    for l in range(len(lines)):
+                                        if lines[l] in item:
+                                            if l == 0:
+                                                score1 += item[lines[l]]
+                                            else:
+                                                score2 += item[lines[l]]
                         if score1 > 0 and score2 > 0:
                             total_score += (score1 * score2)
                         else:
@@ -227,7 +247,18 @@ def calculate_score(move: tuple, board: tuple, player_id: int, board_size=15):
             except AttributeError:
                 total_score = -1
             scored_board[row][col] = total_score
-    print(scored_board)
+    scores_normalized = []
+    max_score = int(np.amax(scored_board))
+    scored_board_flat = scored_board.flatten()
+    # normalize the score for ai training purposes
+    for i in range(len(scored_board_flat)):
+        new_normalized_score = 0
+        if max_score > 0:
+            new_normalized_score = (scored_board_flat[i] / (max_score / 2) - 1)
+        if new_normalized_score < 0:
+            new_normalized_score = 0
+        scores_normalized.append(new_normalized_score)
+    return max_score, scored_board, scores_normalized
 
 
 def check_win(row, col, player, instance):
@@ -293,12 +324,11 @@ def convert_to_one_hot(board, player_id):
     return one_hot_board
 
 
-def run(instance):
+def run(instance, game_number):
     # Main game loop
     global window_name, victory_text, current_player
     for p in players:
-        if p.TYPE == "MM-AI":
-    #        p.ai.set_game(instance.board)
+        if p.TYPE == "MM-AI" and game_number == 0:
             p.ai.model.load_model()
     # Initialize Pygame
     pygame.display.set_icon(pygame.image.load('res/ico.png'))
@@ -347,29 +377,28 @@ def run(instance):
                 mm_ai.set_game(one_hot_board)
                 # mm_ai.get_state(instance.board)
                 old_state = instance.board
-                max_score, scores, scores_normalized = mm_ai.calculate_short_max_score(instance.board)
+                # max_score, scores, scores_normalized = mm_ai.calculate_short_max_score(instance.board)
+                max_score, scores, scores_normalized = calculate_score(instance.board)
                 action = mm_ai.get_action(instance.board, one_hot_board, scores)
-                calculate_score(action, instance.board, players[current_player-1].ID)
-                print(f"action: {action}")
-                action_id = ((action[0]) % (instance.GRID_SIZE - 1) * instance.GRID_SIZE) + (action[1] + 1)
+                # action_id = ((action[0]) % (instance.GRID_SIZE - 1) * instance.GRID_SIZE) + (action[1] + 1)
                 # short_score = mm_ai.calculate_short_score(action, instance.board)
-                np_scores = np.array(scores).reshape(15, 15)
+                np_scores = np.array(scores_normalized).reshape(15, 15)
                 short_score = np_scores[action[0]][action[1]]
-                print(np_scores)
-                print(f"short score: {np_scores[action[0]][action[1]]}, max score: {max_score}")
+                # print(f"short score: {short_score}, move: {action}")
                 if max_score <= 0:
                     # prevent division with negative values or zero
                     score = 0
                 else:
                     score = short_score / (max_score/2) - 1
-                print(f"move score: {score}")
+                # print(f"move score: {score}")
                 players[current_player - 1].weighed_moves.append(score)
                 instance.board[action[0]][action[1]] = current_player
                 game_over = check_win(action[0], action[1], current_player, instance)
+                next_max_score, next_scores, next_scores_normalized = calculate_score(instance.board)
                 # Train the AI
                 mm_ai.remember(one_hot_board, action, score, convert_to_one_hot(instance.board, players[current_player-1].ID), game_over)
                 # mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
-                mm_ai.train_short_memory(one_hot_board, action_id, score, scores_normalized, convert_to_one_hot(instance.board, players[current_player-1].ID), game_over)
+                mm_ai.train_short_memory(one_hot_board, action, score, scores_normalized, convert_to_one_hot(instance.board, players[current_player-1].ID), next_scores_normalized, game_over)
                 # mm_ai.train_short_memory(np.array(old_state), action_id, score, np.array(instance.board), game_over)
                 players[current_player - 1].move_loss.append(mm_ai.loss)
                 players[current_player-1].final_action = action
@@ -381,7 +410,7 @@ def run(instance):
                     current_player = 3 - current_player
             draw_board(instance)
             pygame.display.flip()
-            window_name = "Gomoku -- Player " + str(current_player)
+            window_name = "Gomoku - Game: " + str(game_number) + " - Player " + str(current_player)
             pygame.display.set_caption(window_name)
         else:
             victory_text = "TIE"
@@ -390,7 +419,7 @@ def run(instance):
 
     # End game
     stats.log_message(victory_text)
-    pygame.display.set_caption("Gomoku -- " + victory_text)
+    pygame.display.set_caption("Gomoku - Game: " + str(game_number) + " - " + victory_text)
     update_player_stats(instance, current_player-1)
     # For any MM-AI, train for long memory and save model
     data = {}
@@ -410,15 +439,15 @@ def run(instance):
         p.reset_score()
         if instance.last_round:
             if p.TYPE == "MM-AI":
-                data[f"{p.TYPE} {p.ID}: final scores"] = p.weighed_scores
-                data[f"{p.TYPE} {p.ID}: move scores"] = p.final_move_scores
+                data[f"{p.TYPE} {p.ID}: game accuracy"] = p.weighed_scores
+                data[f"{p.TYPE} {p.ID}: move accuracy"] = p.final_move_scores
                 loss_data[f"{p.TYPE} {p.ID}: score loss"] = [float(val) for val in p.score_loss]
                 move_loss_data[f"{p.TYPE} {p.ID}: move loss"] = p.final_move_loss
                 stats.log_message(f"{p.TYPE} {p.ID}: average score loss: {sum([float(val) for val in p.score_loss]) / len([float(val) for val in p.score_loss])}")
                 stats.log_message(f"{p.TYPE} {p.ID}: average move loss: {sum(p.final_move_loss) / len(p.final_move_loss)}")
             p.reset_all_stats()
     if len(data) > 0:
-        stats.plot_graph(data, 'normalized scores')
+        stats.plot_graph(data, 'accuracy')
     if len(loss_data) > 0:
         stats.plot_graph(loss_data, 'loss data')
     if len(move_loss_data) > 0:

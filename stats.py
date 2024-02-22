@@ -42,7 +42,7 @@ def log_win(players):
 
 
 def plot_graph(data: dict, data_name='data', title='title'):
-    plt.figure(figsize=(10, 6))
+    # plt.figure(figsize=(10, 6))
     for k, v in data.items():
         plt.plot(v, 'o', label=k)
         running_avg = np.cumsum(v) / (np.arange(len(v)) + 1)

@@ -13,6 +13,11 @@ def create_gomoku_game(filename):
         return values
 
 
+def load_scores(filename):
+    with open(filename, 'r') as file:
+        return json.load(file).get("scores", [])
+
+
 def load(filename):
     return json.load(filename)
 

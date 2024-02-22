@@ -61,7 +61,7 @@ def start_new_game():
             stats.log_message(f"Game {i+1} begins.")
             game_instance.current_game = i+1
             game_instance.last_round = (i+1 == runs)
-            gomoku.run(game_instance)
+            gomoku.run(game_instance, i)
     except ValueError:
         print("Game runs value invalid.")
     game_over()
