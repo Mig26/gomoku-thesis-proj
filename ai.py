@@ -20,21 +20,21 @@ class ConvNet(nn.Module):
         super(ConvNet, self).__init__()
         # Define your CNN architecture here
         self.layer1 = torch.nn.Sequential(
-            torch.nn.Conv2d(3, input_dim * input_dim, kernel_size=5, stride=1, padding=2),
+            torch.nn.Conv2d(3, hidden_dim, kernel_size=5, stride=1, padding=2),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=5, stride=1),
             torch.nn.Dropout(p=0.05))
         self.layer2 = torch.nn.Sequential(
-            torch.nn.Conv2d(input_dim * input_dim, (input_dim * input_dim) * 2, kernel_size=5, stride=1, padding=2),
+            torch.nn.Conv2d(input_dim * input_dim, hidden_dim, kernel_size=5, stride=1, padding=2),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=5, stride=1),
             torch.nn.Dropout(p=0.1))
         self.layer3 = torch.nn.Sequential(
-            torch.nn.Conv2d((input_dim * input_dim), output_dim, kernel_size=5, padding=2),
+            torch.nn.Conv2d(hidden_dim, output_dim, kernel_size=5, padding=2),
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=5),
             torch.nn.Dropout(p=0.2))
-        self.fc2 = torch.nn.Linear(output_dim, input_dim, bias=True)
+        self.fc2 = torch.nn.Linear(input_dim * input_dim, input_dim * input_dim, bias=True)
         self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=input_dim, kernel_size=5, padding=2)
         self.conv2 = nn.Conv2d(in_channels=input_dim * input_dim, out_channels=input_dim * input_dim, kernel_size=5, padding=2)
         # self.fc1 = nn.Linear(output_dim, 1)
@@ -51,8 +51,9 @@ class ConvNet(nn.Module):
         # print(f"out after first conv:\n{out}")
         # out = F.relu(self.layer2(out))
         out = F.relu(self.layer3(out))
-        # print(f"out after second conv:\n{out}")
-        # out = x.squeeze(0).squeeze(-1)
+        # print(f"out after second conv:\n{np.shape(out)}")
+        # out = out.squeeze(0).squeeze(-1).squeeze(-1)
+        # print(np.shape(out))
         # out = out.mean(dim=[1, 2], keepdim=True).squeeze(-1).squeeze(-1)
         # print(f"out after squeeze and mean:\n{out}")
         # out = self.fc1(out)
@@ -95,7 +96,7 @@ class GomokuAI:
         # self.len_action = len(self.Action().to_array())
         # self.len_state = len(self.State().to_array())
         self.board_size = _board_size
-        self.gamma = 0.4
+        self.gamma = 0.2
         self.epsilon = 0.25
         self.memory = deque(maxlen=MAX_MEMORY)
         # self.model = Linear_QNet(self.board_size**2, (self.board_size**2)*2, 1)
@@ -104,7 +105,7 @@ class GomokuAI:
         # self.model.eval()
         self.trainer = QTrainer(self.model, lr=self.learning_rate, gamma=self.gamma)
         # self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
-        self.optimizer = optim.ASGD(params=self.model.parameters(), lr=self.learning_rate)
+        self.optimizer = optim.Adam(params=self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
         # self.criterion = nn.CrossEntropyLoss()
         self.loss = 0
@@ -113,7 +114,7 @@ class GomokuAI:
         self.game = _game
 
     def build_model(self, input_dim: int) -> ConvNet:
-        return ConvNet(input_dim, input_dim * 2, 256)
+        return ConvNet(input_dim, 30, 255)
 
     def get_state(self, game):
         return torch.tensor(game, dtype=torch.float32).unsqueeze(0)
@@ -126,7 +127,7 @@ class GomokuAI:
             self.epsilon *= EPSILON_DECAY_RATE
 
     def train_long_memory(self):
-        self.model.eval()
+        self.model.train()
         if len(self.memory) < BATCH_SIZE:
             mini_batch = self.memory
         else:
@@ -162,7 +163,7 @@ class GomokuAI:
         # self.optimizer.zero_grad(set_to_none=False)
 
     def train_short_memory(self, state, action, reward, scores, next_state, next_scores, done):
-        self.model.eval()
+        self.model.train()
         state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
         np_scores = np.array(scores).reshape(15, 15)
         np_next_scores = np.array(next_scores).reshape(15, 15)
@@ -227,9 +228,9 @@ class GomokuAI:
         # current_state = current_state.mean(dim=[1, 2], keepdim=True)
         action = None
         with torch.no_grad():
-            # prediction = self.model(current_state)
+            prediction = self.model(current_state)
             # prediction = self.model(scores_tensor)
-            prediction = current_state
+            # prediction = current_state
             # prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
         # Exploration vs Exploitation: Epsilon-Greedy Strategy
         if random.random() < self.epsilon:
