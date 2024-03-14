@@ -325,18 +325,25 @@ def convert_to_one_hot(board, player_id):
     return one_hot_board
 
 
-def run(instance, game_number):
+def run(instance, game_number, train, record_replay=False, moves:dict=None):
     # Main game loop
     global window_name, victory_text, current_player
     for p in players:
         if p.TYPE == "MM-AI":
             p.ai.model.load_model()
+            p.ai.train = train
     # Initialize Pygame
     pygame.display.set_icon(pygame.image.load('res/ico.png'))
     pygame.init()
     pygame.display.set_caption(window_name)
     instance.winning_cells = []
     running = True
+    if record_replay:
+        p1_moves = []
+        p2_moves = []
+    if moves is not None:
+        move_id = 0
+        position = list(moves.keys())
     while running:
         if not check_board_full(instance):
             # Human move
@@ -350,6 +357,10 @@ def run(instance, game_number):
                         row = y // instance.CELL_SIZE
                         if instance.GRID_SIZE > row >= 0 == instance.board[row][col] and 0 <= col < instance.GRID_SIZE:
                             instance.board[row][col] = current_player
+                            if current_player == 1 and record_replay:
+                                p1_moves.append((row, col))
+                            elif record_replay:
+                                p2_moves.append((row, col))
                             players[current_player - 1].moves += 1
                             if check_win(row, col, current_player, instance):
                                 victory_text = f"Player {current_player} wins!"
@@ -357,13 +368,17 @@ def run(instance, game_number):
                             else:
                                 # Switch player if neither player have won
                                 current_player = 3 - current_player
-            # AI move
+            # TestAI move
             elif players[current_player-1].TYPE == "AI" and not testai.check_game_over(instance):
                 if instance.ai_delay:
                     time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
                 ai_row, ai_col = testai.ai_move(instance, players[current_player-1].ID)
                 testai.make_move((ai_row, ai_col), current_player, instance)
                 players[current_player-1].moves += 1
+                if current_player == 1 and record_replay:
+                    p1_moves.append((ai_row, ai_col))
+                elif record_replay:
+                    p2_moves.append((ai_row, ai_col))
                 if check_win(ai_row, ai_col, current_player, instance):
                     victory_text = f"AI {players[current_player-1].ID} wins!"
                     running = False
@@ -372,7 +387,7 @@ def run(instance, game_number):
             # MM-AI move
             elif players[current_player-1].TYPE == "MM-AI":
                 if instance.ai_delay:
-                    time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
+                    time.sleep(random.uniform(0.25, 1.0))   # randomize AI "thinking" time
                 one_hot_board = convert_to_one_hot(instance.board, players[current_player-1].ID)
                 mm_ai = players[current_player-1].ai
                 mm_ai.set_game(one_hot_board)
@@ -394,16 +409,21 @@ def run(instance, game_number):
                     # score = max_score - short_score
                     score = short_score / max_score
                 print(f"move score: {score}")
+                if current_player == 1 and record_replay:
+                    p1_moves.append(action)
+                elif record_replay:
+                    p2_moves.append(action)
                 players[current_player - 1].weighed_moves.append(score)
                 instance.board[action[0]][action[1]] = current_player
                 game_over = check_win(action[0], action[1], current_player, instance)
                 next_max_score, next_scores, next_scores_normalized = calculate_score(instance.board)
                 # Train the AI
-                mm_ai.remember(old_state, action, score, instance.board, game_over)
-                # mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
-                mm_ai.train_short_memory(one_hot_board, action, short_score, scores, convert_to_one_hot(instance.board, players[current_player-1].ID), next_scores, game_over)
-                # mm_ai.train_short_memory(np.array(old_state), action, score, scores_normalized, np.array(instance.board), next_scores_normalized, game_over)
-                players[current_player - 1].move_loss.append(mm_ai.loss)
+                if train:
+                    mm_ai.remember(old_state, action, score, instance.board, game_over)
+                    # mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
+                    mm_ai.train_short_memory(one_hot_board, action, short_score, scores, convert_to_one_hot(instance.board, players[current_player-1].ID), next_scores, game_over)
+                    # mm_ai.train_short_memory(np.array(old_state), action, score, scores_normalized, np.array(instance.board), next_scores_normalized, game_over)
+                    players[current_player - 1].move_loss.append(mm_ai.loss)
                 players[current_player-1].final_action = action
                 players[current_player - 1].moves += 1
                 if game_over:
@@ -411,6 +431,17 @@ def run(instance, game_number):
                     running = False
                 else:
                     current_player = 3 - current_player
+            #Replay
+            elif players[current_player - 1].TYPE == "replay":
+                if instance.ai_delay:
+                    time.sleep(random.uniform(0.25, 1.0))   # randomize ai "thinking" time
+                instance.board[position[move_id][0]][position[move_id][1]] = current_player
+                if check_win(position[move_id][0], position[move_id][1], current_player, instance):
+                    victory_text = f"AI {players[current_player-1].ID} wins!"
+                    running = False
+                else:
+                    current_player = 3 - current_player
+                    move_id += 1
             draw_board(instance)
             pygame.display.flip()
             window_name = "Gomoku - Game: " + str(game_number) + " - Player " + str(current_player)
@@ -424,12 +455,14 @@ def run(instance, game_number):
     stats.log_message(victory_text)
     pygame.display.set_caption("Gomoku - Game: " + str(game_number) + " - " + victory_text)
     update_player_stats(instance, current_player-1)
+    if record_replay:
+        filereader.save_replay(p1_moves, p2_moves)
     # For any MM-AI, train for long memory and save model
     data = {}
     loss_data = {}
     move_loss_data = {}
     for p in players:
-        if p.TYPE == "MM-AI":
+        if p.TYPE == "MM-AI" and train:
             p.ai.remember(instance.board, p.final_action, p.score, instance.board, True)
             p.ai.train_long_memory()
             p.score_loss.append(p.ai.loss)
@@ -441,7 +474,7 @@ def run(instance, game_number):
             stats.log_message(f"{p.TYPE} {p.ID}: move loss: {sum(p.move_loss)/len(p.move_loss)}")
         p.reset_score()
         if instance.last_round:
-            if p.TYPE == "MM-AI":
+            if p.TYPE == "MM-AI" and train:
                 data[f"{p.TYPE} {p.ID}: game accuracy"] = p.weighed_scores
                 data[f"{p.TYPE} {p.ID}: move accuracy"] = p.final_move_scores
                 loss_data[f"{p.TYPE} {p.ID}: score loss"] = [float(val) for val in p.score_loss]

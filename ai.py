@@ -109,6 +109,7 @@ class GomokuAI:
         self.criterion = nn.MSELoss()
         # self.criterion = nn.CrossEntropyLoss()
         self.loss = 0
+        self.train = False
 
     def set_game(self, _game):
         self.game = _game
@@ -233,7 +234,7 @@ class GomokuAI:
             # prediction = current_state
             # prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
         # Exploration vs Exploitation: Epsilon-Greedy Strategy
-        if random.random() < self.epsilon:
+        if random.random() < self.epsilon and self.train:
             # Exploration: Random Move
             print("Exploration")
             num_moves_to_select = max(int(len(valid_moves) * .025), 1)
