@@ -16,8 +16,6 @@ def check_line(row, col, direction, board, ai_id):
                     multiplier = 1
                     score_white /= 2
                     score_black /= 2
-                    # score_white = 0
-                    # score_black = 0
                 if board_score == 1:    # black piece
                     if ai_id == 0:
                         score_white += 5 * multiplier - i
@@ -128,5 +126,4 @@ def ai_move(instance, ai_id):
         best_move = random.choice([k for k,v in scores.items() if v == max_score])
     except IndexError:
         best_move = random.choice(moves)
-    # print(f"AI {ai_id}: Max score: {max_score}, best move:", best_move)
     return best_move

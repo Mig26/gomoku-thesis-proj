@@ -165,15 +165,15 @@ class GomokuAI:
     def train_short_memory(self, state, action, reward, scores, next_state, next_scores, done):
         self.model.train()
         state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
-        np_scores = np.array(scores).reshape(15, 15)
-        np_next_scores = np.array(next_scores).reshape(15, 15)
-        scores_tensor = torch.tensor(np_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
-        next_scores_tensor = torch.tensor(np_next_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
+        # np_scores = np.array(scores).reshape(15, 15)
+        # np_next_scores = np.array(next_scores).reshape(15, 15)
+        # scores_tensor = torch.tensor(np_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
+        # next_scores_tensor = torch.tensor(np_next_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
         # state_score = torch.cat((scores_tensor, state), dim=1)
-        state_flattened = state.view(-1)  # flattened state
+        # state_flattened = state.view(-1)  # flattened state
         next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
         # next_state_score = torch.cat((next_scores_tensor, next_state), dim=1)
-        action = torch.tensor([action], dtype=torch.long)
+        # action = torch.tensor([action], dtype=torch.long)
         # print(f"scores:\n{reward}")
         reward = torch.tensor([reward], dtype=torch.float)
 
