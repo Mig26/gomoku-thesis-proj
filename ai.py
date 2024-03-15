@@ -270,7 +270,8 @@ class GomokuAI:
                 # pred_indices = self.id_to_move(int(pred_indices[0][idx]), valid_moves)
                 # if pred_indices is not None:
                     # action = (pred_indices[0], pred_indices[1])
-                action = (pred_indices[0][idx], pred_indices[1][idx])
+                if (pred_indices[0][idx], pred_indices[1][idx]) in valid_moves:
+                    action = (pred_indices[0][idx], pred_indices[1][idx])
             else:
                 action = None
             # action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
