@@ -7,7 +7,6 @@ import torch.nn.functional as F
 import numpy as np
 import random
 from collections import deque
-from model import Linear_QNet, QTrainer
 
 MAX_MEMORY = 1_000_000
 BATCH_SIZE = 10000
@@ -37,37 +36,13 @@ class ConvNet(nn.Module):
         self.fc2 = torch.nn.Linear(input_dim * input_dim, input_dim * input_dim, bias=True)
         self.conv1 = nn.Conv2d(in_channels=input_dim, out_channels=input_dim, kernel_size=5, padding=2)
         self.conv2 = nn.Conv2d(in_channels=input_dim * input_dim, out_channels=input_dim * input_dim, kernel_size=5, padding=2)
-        # self.fc1 = nn.Linear(output_dim, 1)
         self.fc3 = nn.Linear(output_dim, input_dim, bias=False)
-
-        # self.fc1 = nn.Conv2d(in_channels=output_dim, out_channels=2, kernel_size=3, padding=1)
-        # self.fc2 = nn.Linear(256, 1)
         self.fc1 = nn.Linear(output_dim, input_dim * input_dim)
-        # self.fc2 = nn.Linear(1024, 1)
 
     def forward(self, x):
-        # print(f"x in:\n{x}")
         out = F.relu(self.layer1(x))
-        # print(f"out after first conv:\n{out}")
-        # out = F.relu(self.layer2(out))
         out = F.relu(self.layer3(out))
-        # print(f"out after second conv:\n{np.shape(out)}")
-        # out = out.squeeze(0).squeeze(-1).squeeze(-1)
-        # print(np.shape(out))
-        # out = out.mean(dim=[1, 2], keepdim=True).squeeze(-1).squeeze(-1)
-        # print(f"out after squeeze and mean:\n{out}")
-        # out = self.fc1(out)
-        # print(f"out after first fully connected:\n{out}")
-        # out = self.fc2(out)
-        # print(f"out after second fully connected:\n{out}")
-        # print(f"max out: {torch.max(out)}")
         return out
-    # x = F.relu_(self.conv1(x))
-    # x = F.relu_(self.conv2(x))
-    # x = x.squeeze(0)
-    # x = x.mean(dim=[1, 2], keepdim=True).squeeze(-1).squeeze(-1)
-    # x = self.fc1(x)
-    # return x
 
     def load_model(self, file_name='model.pth'):
         model_folder = './data/'
@@ -92,22 +67,13 @@ class GomokuAI:
         self.n_games = 0
         self.game = None
         self.learning_rate = 0.00075
-        # self.learning_rate = 0.00000000025
-        # self.len_action = len(self.Action().to_array())
-        # self.len_state = len(self.State().to_array())
         self.board_size = _board_size
         self.gamma = 0.2
         self.epsilon = 0.25
         self.memory = deque(maxlen=MAX_MEMORY)
-        # self.model = Linear_QNet(self.board_size**2, (self.board_size**2)*2, 1)
         self.model = self.build_model(self.board_size)
-        # self.model.load_model()
-        # self.model.eval()
-        self.trainer = QTrainer(self.model, lr=self.learning_rate, gamma=self.gamma)
-        # self.optimizer = optim.Adam(self.model.parameters(), lr=self.learning_rate)
         self.optimizer = optim.Adam(params=self.model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
-        # self.criterion = nn.CrossEntropyLoss()
         self.loss = 0
         self.train = False
 
@@ -134,70 +100,29 @@ class GomokuAI:
         else:
             mini_batch = random.sample(self.memory, BATCH_SIZE)
         states, actions, rewards, next_states, dones = zip(*mini_batch)
-        state = torch.tensor(mini_batch[0][0], dtype=torch.float).view(1, -1).unsqueeze(-1).unsqueeze(-1)
         # Convert to tensors
         states = torch.tensor(states, dtype=torch.float).unsqueeze(0)  # .unsqueeze(0)
-        states = torch.transpose(states, 0, 1)
-        actions = torch.tensor(actions, dtype=torch.long)
         rewards = torch.tensor(rewards, dtype=torch.float)
-        next_states = torch.tensor(next_states, dtype=torch.float)
-
-        # Predict Q-values for current states
-        q_pred = rewards  # .gather(1, actions.unsqueeze(-1).unsqueeze(0)).squeeze(-1)
-        # print(f"final q_pred: {q_pred}")
-        # q_pred = self.model(state.squeeze(0).squeeze(0).view(1, -1).unsqueeze(-1).unsqueeze(-1))
-        # q_pred = self.model(state)
-
-        # Predict Q-values for next states
-        q_next = next_states.detach()
-        q_next_max = torch.max(q_next, dim=1)[0].unbind(dim=1)
-        # q_target = rewards + (self.gamma * q_next_max * (~torch.tensor(dones)))
+        q_pred = rewards
         q_target = rewards + (self.gamma * (~torch.tensor(dones)))
         # Loss and backpropagation
         loss = self.criterion(q_pred, q_target)
-        # loss = self.criterion(q_pred, q_target.unsqueeze(1))
         loss.requires_grad_(requires_grad=True)
         loss.backward()
         self.loss = loss.detach().numpy()  # for logging purposes
         self.optimizer.step()
         self.adjust_epsilon()
-        # self.optimizer.zero_grad(set_to_none=False)
 
     def train_short_memory(self, state, action, reward, scores, next_state, next_scores, done):
         self.model.train()
         state = torch.tensor(state, dtype=torch.float).unsqueeze(0)
-        # np_scores = np.array(scores).reshape(15, 15)
-        # np_next_scores = np.array(next_scores).reshape(15, 15)
-        # scores_tensor = torch.tensor(np_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
-        # next_scores_tensor = torch.tensor(np_next_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
-        # state_score = torch.cat((scores_tensor, state), dim=1)
-        # state_flattened = state.view(-1)  # flattened state
         next_state = torch.tensor(next_state, dtype=torch.float).unsqueeze(0)
-        # next_state_score = torch.cat((next_scores_tensor, next_state), dim=1)
-        # action = torch.tensor([action], dtype=torch.long)
-        # print(f"scores:\n{reward}")
         reward = torch.tensor([reward], dtype=torch.float)
-
-        # self.model.eval()
-        # action_index = action[0, 0] * state.size(2) + action[0, 1]  # row * number_of_columns + column
-        # action_index = action_index.long()
-        # q_pred = self.model(state_flattened.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))#.view(1, -1).unsqueeze(-1).unsqueeze(-1))#.squeeze(0).squeeze(0).unsqueeze(-1).unsqueeze(-1)).squeeze(0).squeeze(0)#.gather(0, action).view(1, -1).unsqueeze(-1).unsqueeze(-1)  #
-        # q_pred = self.model(state.squeeze(0).squeeze(0).view(1, -1).unsqueeze(-1).unsqueeze(-1))#.gather(-2, action.unsqueeze(0).unsqueeze(-1))
         q_pred = self.model(state)
-        # print(f"next state: {np.shape(next_state_score)}")
         q_next = self.model(next_state)
-        # print(f"q next: {q_next}")
-        q_target = q_pred.clone()
         q_new = q_pred + self.learning_rate * (reward + self.gamma * torch.argmax(q_pred - q_next))
 
-        # print(f"torch max: {(reward + self.gamma * torch.max(q_pred))}")
-        # print(f"q new: {q_new}")
-        # q_new = reward + self.gamma * torch.max(self.model(next_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)))
-        # if not done:
-        #     q_target = reward + (self.gamma * torch.max(q_next))
-        # q_target[torch.argmax(action).item()] = q_new
         loss = self.criterion(q_pred, q_new)
-        # loss = self.criterion(q_pred, q_target.unsqueeze(1))
         loss.requires_grad_(requires_grad=True)
         loss.backward()
         self.loss = loss.detach().numpy()  # for logging purposes
@@ -221,22 +146,12 @@ class GomokuAI:
     def get_action(self, state, one_hot_board, scores):
         valid_moves = self.get_valid_moves(state)
         np_scores = np.array(scores).reshape(15, 15)
-        # np_scores = np.array(scores).flatten()
-        scores_tensor = torch.tensor(np_scores, dtype=torch.float).unsqueeze(0).unsqueeze(0)
         current_state = torch.tensor(self.get_state(one_hot_board), dtype=torch.float)
-        # current_state = torch.tensor(self.get_state(state), dtype=torch.float)
-        # current_state = torch.cat((scores_tensor, current_state), dim=1)
-        # current_state = current_state.mean(dim=[1, 2], keepdim=True)
         action = None
         with torch.no_grad():
             prediction = self.model(current_state)
-            # prediction = self.model(scores_tensor)
-            # prediction = current_state
-            # prediction = self.model(current_state.view(-1).unsqueeze(-1).unsqueeze(-1).unsqueeze(-1))
-        # Exploration vs Exploitation: Epsilon-Greedy Strategy
         if random.random() < self.epsilon and self.train:
-            # Exploration: Random Move
-            print("Exploration")
+            # print("Exploration")
             num_moves_to_select = max(int(len(valid_moves) * .025), 1)
             if num_moves_to_select > 0:
                 try:
@@ -244,37 +159,16 @@ class GomokuAI:
                     action = self.id_to_move(top_moves_indices[torch.randint(len(top_moves_indices), (1,))].item(), valid_moves)
                 except RuntimeError:
                     action = None
-            # action = self.id_to_move(self.get_random_action(state), valid_moves)
         else:
-            # Exploitation: Best Move According to the Model
-            print("Exploitation")
-
-            state_concat = torch.cat((self.get_state(one_hot_board), scores_tensor), dim=1)
-            # current_state = self.get_state(state_concat)
-
-            # current_state = self.get_state(state_concat).clone().detach()
-
-            # num_moves_to_select = max(int(len(valid_moves) * .025), 1)
-            # if num_moves_to_select > 0:
-            #     top_moves_indices = torch.topk(prediction.flatten(), k=num_moves_to_select).indices
-            #     action = self.id_to_move(top_moves_indices[torch.randint(len(top_moves_indices), (1,))].item(), valid_moves)
-            # else:
-            # prediction = self.model(prediction)
-            # pred_possible_moves = round(float(torch.max(prediction)), 4)
+            # print("Exploitation")
             pred_possible_moves = int(torch.max(prediction))
             pred_indices = np.where(np_scores == pred_possible_moves)
-            # pred_indices = np.where(np.around(prediction, 4) == pred_possible_moves)
             if len(pred_indices[0]) > 0:
                 idx = random.randint(0, len(pred_indices[0])-1)
-                # print(f"idx: {idx}, indices: {pred_indices} = {int(pred_indices[0][idx])}")
-                # pred_indices = self.id_to_move(int(pred_indices[0][idx]), valid_moves)
-                # if pred_indices is not None:
-                    # action = (pred_indices[0], pred_indices[1])
                 if (pred_indices[0][idx], pred_indices[1][idx]) in valid_moves:
                     action = (pred_indices[0][idx], pred_indices[1][idx])
             else:
                 action = None
-            # action = self.id_to_move(torch.argmax(prediction).item(), valid_moves)
         while action is None:
             # if no action, switch to exploration
             print("Exploration")
@@ -327,24 +221,6 @@ class GomokuAI:
                             else:
                                 current_score += self.calculate_score(current_score, move, board, current_spot, j,
                                                                       directions[i])
-                            # previous_spot = board[move[0] + ((j - 1) * directions[i][0])][
-                            #     move[1] + ((j - 1) * directions[i][1])]
-                            # if current_spot == previous_spot:
-                            #     current_score *= j+1    # increase score if the current and previous spots are of the same color
-                            # elif current_spot != previous_spot and current_spot != 0:   # a situation where a line is blocked
-                            #     for k in range(3):  # check opposing direction for continuation
-                            #         opposing_spot = board[move[0]-((j+1)*directions[i][0])][move[1]-((j+1)*directions[i][1])]
-                            #         if opposing_spot != 0 and opposing_spot == first_spot:
-                            #             current_score += k+1    # increase score if opposing direction has the same color as the first spot of the current direction
-                            #         elif opposing_spot != 0 and opposing_spot != first_spot:
-                            #             if (j+1)+(k+1) <= 4: # if the lines are too short and blocked from both sides, don't reward
-                            #                 current_score = 0
-                            #             break
-                            #         else:
-                            #             break
-                            #     break
-                        # elif current_spot != 0: # this condition only applies if j == 0
-                        #    current_score += j+1
                         else:
                             pass
                     elif max_score_calculation:

@@ -120,11 +120,9 @@ def update_player_stats(instance, winning_player):
             if i == winning_player:
                 players[i].wins += 1
                 is_winner = True
-                # players[i].calculate_score(instance.GRID_SIZE**2, True, instance.current_game)
             else:
                 players[i].losses += 1
                 is_winner = False
-                # players[i].calculate_score(instance.GRID_SIZE**2, False, instance.current_game)
             players[i].calculate_score(instance.GRID_SIZE ** 2, is_winner, instance.current_game)
             if instance.last_round:
                 players[i].calculate_win_rate(instance.current_game)
@@ -132,12 +130,9 @@ def update_player_stats(instance, winning_player):
         for i in range(len(players)):
             players[i].calculate_score(0, False, instance.current_game)
     stats.log_win(players)
-    # reset_player_stats()
     if instance.last_round:
         stats.log_message(f"\nStatistics:\n{players[0].TYPE} {players[0].ID}:\nwins: {players[0].wins} - win rate: {players[0].win_rate} - average score: {players[0].avg_score} - weighed score: {sum(players[0].weighed_scores)/len(players[0].weighed_scores)} - average moves: {players[0].avg_moves}.\n"
                           f"{players[1].TYPE} {players[1].ID}:\nwins: {players[1].wins} - win rate: {players[1].win_rate} - average score: {players[1].avg_score} - weighed score: {sum(players[1].weighed_scores)/len(players[1].weighed_scores)} - average moves: {players[1].avg_moves}.")
-        # players[0].reset_all_stats()
-        # players[1].reset_all_stats()
 
 
 def set_players(_players):
@@ -248,7 +243,6 @@ def calculate_score(board: tuple, board_size=15):
             except AttributeError:
                 total_score = -1
             scored_board[row][col] = total_score
-    print(scored_board)
     scores_normalized = []
     max_score = int(np.amax(scored_board))
     scored_board_flat = scored_board.flatten()
@@ -392,24 +386,16 @@ def run(instance, game_number, train, record_replay=False, moves:dict=None):
                 one_hot_board = convert_to_one_hot(instance.board, players[current_player-1].ID)
                 mm_ai = players[current_player-1].ai
                 mm_ai.set_game(one_hot_board)
-                # mm_ai.get_state(instance.board)
                 old_state = instance.board
-                # max_score, scores, scores_normalized = mm_ai.calculate_short_max_score(instance.board)
                 max_score, scores, scores_normalized = calculate_score(instance.board)
                 action = mm_ai.get_action(instance.board, one_hot_board, scores_normalized)
-                # action_id = ((action[0]) % (instance.GRID_SIZE - 1) * instance.GRID_SIZE) + (action[1] + 1)
-                # short_score = mm_ai.calculate_short_score(action, instance.board)
                 np_scores = np.array(scores).reshape(15, 15)
                 short_score = np_scores[action[0]][action[1]]
-                # print(f"short score: {short_score}, move: {action}")
                 if max_score <= 0:
                     # prevent division with negative values or zero
                     score = 0
                 else:
-                    # score = short_score / (max_score/2) - 1
-                    # score = max_score - short_score
                     score = short_score / max_score
-                print(f"move score: {score}")
                 if current_player == 1 and record_replay:
                     p1_moves.append(action)
                 elif record_replay:
@@ -421,9 +407,7 @@ def run(instance, game_number, train, record_replay=False, moves:dict=None):
                 # Train the AI
                 if train:
                     mm_ai.remember(old_state, action, score, instance.board, game_over)
-                    # mm_ai.remember(np.array(old_state), action, score, np.array(instance.board), game_over)
                     mm_ai.train_short_memory(one_hot_board, action, short_score, scores, convert_to_one_hot(instance.board, players[current_player-1].ID), next_scores, game_over)
-                    # mm_ai.train_short_memory(np.array(old_state), action, score, scores_normalized, np.array(instance.board), next_scores_normalized, game_over)
                     players[current_player - 1].move_loss.append(mm_ai.loss)
                 players[current_player-1].final_action = action
                 players[current_player - 1].moves += 1
