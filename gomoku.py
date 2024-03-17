@@ -242,12 +242,13 @@ def calculate_score(board: tuple, board_size=15):
                                             else:
                                                 score2 += item[lines[l]]
                         if score1 > 0 and score2 > 0:
-                            total_score += (score1 * score2)
+                            total_score += (score1 + score2)
                         else:
                             total_score += (score1 + score2)
             except AttributeError:
                 total_score = -1
             scored_board[row][col] = total_score
+    print(scored_board)
     scores_normalized = []
     max_score = int(np.amax(scored_board))
     scored_board_flat = scored_board.flatten()
