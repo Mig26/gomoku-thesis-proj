@@ -1,3 +1,3 @@
 # gomoku-thesis-proj
 
-##🔨
+# 🔨
